@@ -1,0 +1,20 @@
+//
+//  SmartCeryApp.swift
+//  SmartCery
+//
+//  Created by Saalim Ajmerwala on 19/07/26.
+//
+
+import SwiftUI
+
+@main
+struct SmartCeryApp: App {
+    @StateObject private var router = AppRouter()
+
+    var body: some Scene {
+        WindowGroup {
+            RootView()
+                .environmentObject(router)
+        }
+    }
+}
