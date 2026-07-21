@@ -5,6 +5,8 @@
 //  It assumes that GroceryMarketView, DashboardView, PantryView, GroceryListView, SettingsView,
 //  and GroceryMarketViewModel exist elsewhere in the project.
 //
+//  NOTE: The MainTab enum should include a case .mealPlanner for the new tab to work correctly.
+//
 
 import SwiftUI
 
@@ -46,18 +48,19 @@ struct MainTabView: View {
             .tag(MainTab.pantry)
 
             NavigationStack {
-                GroceryListView()
+                MealPlannerview()
+                    .environmentObject(groceryMarketVM)
             }
             .tabItem {
-                Label("List", systemImage: "list.bullet")
+                Label("Planner", systemImage: "calendar")
             }
-            .tag(MainTab.groceryList)
-
+            .tag(MainTab.mealPlanner)
+            
             NavigationStack {
                 SettingsView()
             }
             .tabItem {
-                Label("Settings", systemImage: "gearshape")
+                Label("More", systemImage: "ellipsis.circle")
             }
             .tag(MainTab.settings)
         }

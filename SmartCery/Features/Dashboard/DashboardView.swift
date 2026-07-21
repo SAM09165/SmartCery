@@ -9,6 +9,7 @@ import SwiftUI
 
 struct DashboardView: View {
     @EnvironmentObject private var router: AppRouter
+    @EnvironmentObject private var tabRouter: TabRouter
     @StateObject private var viewModel = DashboardViewModel()
 
     private let basilGreen = AppTheme.basilGreen
@@ -23,40 +24,32 @@ struct DashboardView: View {
 
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 22) {
-                    header
                     chefCard
                     statRow
                     pantrySetupCard
                     nextUpSection
                 }
                 .padding(.horizontal, 22)
-                .padding(.top, 26)
+                .padding(.top, 18)
                 .padding(.bottom, 28)
             }
-        }
-    }
-
-    private var header: some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Dashboard")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(zestOrange)
-
-                Text(viewModel.greeting)
-                    .font(.system(size: 32, weight: .semibold))
-                    .foregroundStyle(basilGreen)
-                    .fixedSize(horizontal: false, vertical: true)
+            .safeAreaInset(edge: .top, spacing: 0) {
+                AppTopBar(
+                    title: "Dashboard",
+                    subtitle: viewModel.greeting,
+                    trailingIcon: "cart.fill",
+                    onTrailingTap: { tabRouter.selectedTab = .market }
+                )
+                .padding(.horizontal, 22)
+                .padding(.vertical, 14)
+                .background(
+                    Rectangle()
+                        .fill(.ultraThinMaterial)
+                        .ignoresSafeArea(edges: .top)
+                )
             }
-
-            Spacer()
-
-            Image(systemName: "cart.fill")
-                .font(.system(size: 22, weight: .bold))
-                .foregroundStyle(cream)
-                .frame(width: 48, height: 48)
-                .background(basilGreen, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
+        .toolbar(.hidden, for: .navigationBar)
     }
 
     private var chefCard: some View {
@@ -188,5 +181,5 @@ struct DashboardView: View {
 #Preview {
     DashboardView()
         .environmentObject(AppRouter())
+        .environmentObject(TabRouter())
 }
-

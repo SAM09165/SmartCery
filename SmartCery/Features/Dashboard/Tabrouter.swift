@@ -5,8 +5,10 @@ enum MainTab: Hashable {
     case dashboard
     case market
     case pantry
+    case mealPlanner
     case groceryList
     case settings
+    case Pantry
 }
 
 @MainActor

@@ -7,9 +7,17 @@
 
 import SwiftUI
 
+enum PantrySeedMode {
+    case firstTime
+    case addItems
+}
+
 struct PantrySeedView: View {
     @EnvironmentObject private var router: AppRouter
+    @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel = PantrySeedViewModel()
+
+    let mode: PantrySeedMode
 
     private let columns = [
         GridItem(.adaptive(minimum: 132), spacing: 12)
@@ -47,11 +55,11 @@ struct PantrySeedView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Pantry setup")
+                    Text(mode == .firstTime ? "Pantry setup" : "Add to pantry")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(zestOrange)
 
-                    Text("What is already in your kitchen?")
+                    Text(mode == .firstTime ? "What is already in your kitchen?" : "What did you just add?")
                         .font(.system(size: 30, weight: .semibold))
                         .foregroundStyle(basilGreen)
                         .fixedSize(horizontal: false, vertical: true)
@@ -73,10 +81,11 @@ struct PantrySeedView: View {
                 .accessibilityLabel("Clear selected pantry items")
             }
 
-            Text(viewModel.subtitle)
+            Text(mode == .firstTime ? viewModel.subtitle : "")
                 .font(.system(size: 15, weight: .regular))
                 .foregroundStyle(basilGreen.opacity(0.72))
                 .lineSpacing(3)
+                .opacity(mode == .firstTime ? 1 : 0)
         }
         .padding(.horizontal, 24)
         .padding(.top, 24)
@@ -91,7 +100,7 @@ struct PantrySeedView: View {
                 .foregroundStyle(zestOrange)
                 .frame(width: 28)
 
-            Text(viewModel.chefLine)
+            Text(mode == .firstTime ? viewModel.chefLine : "Adding something new! Pick items to add, then save.")
                 .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(basilGreen)
                 .lineSpacing(2)
@@ -158,9 +167,10 @@ struct PantrySeedView: View {
             Button {
                 viewModel.saveSelection()
                 router.completePantrySeed()
+                dismiss()
             } label: {
                 HStack {
-                    Text(viewModel.primaryButtonTitle)
+                    Text(mode == .addItems ? "Add \(viewModel.selectedCount) Items" : viewModel.primaryButtonTitle)
                     Image(systemName: viewModel.selectedCount == 0 ? "arrow.right" : "checkmark")
                 }
                 .font(.system(size: 17, weight: .semibold))
@@ -170,7 +180,7 @@ struct PantrySeedView: View {
                 .background(basilGreen, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
 
-            Text("You can edit this later. Your future grocery list is already nervous.")
+            Text(mode == .addItems ? "You can always add more later." : "You can edit this later. Your future grocery list is already nervous.")
                 .font(.system(size: 12, weight: .regular))
                 .foregroundStyle(basilGreen.opacity(0.58))
                 .multilineTextAlignment(.center)
@@ -183,6 +193,11 @@ struct PantrySeedView: View {
 }
 
 #Preview {
-    PantrySeedView()
-        .environmentObject(AppRouter())
+    Group {
+        PantrySeedView(mode: .firstTime)
+            .environmentObject(AppRouter())
+
+        PantrySeedView(mode: .addItems)
+            .environmentObject(AppRouter())
+    }
 }

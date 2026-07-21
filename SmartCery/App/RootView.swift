@@ -20,7 +20,7 @@ struct RootView: View {
             case .auth:
                 AuthView()
             case .pantrySeed:
-                PantrySeedView()
+                PantrySeedView(mode: .firstTime)
             case .dashboard:
                 MainTabView()
             }
