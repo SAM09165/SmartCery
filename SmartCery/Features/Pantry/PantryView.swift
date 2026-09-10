@@ -1,8 +1,8 @@
 import SwiftUI
 
 struct PantryView: View {
-    @StateObject private var viewModel = PantryViewModel()
     @EnvironmentObject private var router: AppRouter
+    @EnvironmentObject private var store: AppStore
     @State private var showingAddSheet: Bool = false
 
     var body: some View {
@@ -11,19 +11,23 @@ struct PantryView: View {
 
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 20) {
-                    if !viewModel.needsAttention.isEmpty {
+                    if !needsAttention.isEmpty {
                         sectionHeader("Needs attention")
                         VStack(spacing: 10) {
-                            ForEach(viewModel.needsAttention) { entry in
+                            ForEach(needsAttention) { entry in
                                 pantryRow(entry)
                             }
                         }
                     }
 
-                    sectionHeader("Fresh & stocked")
-                    VStack(spacing: 10) {
-                        ForEach(viewModel.freshItems) { entry in
-                            pantryRow(entry)
+                    sectionHeader(needsAttention.isEmpty ? "Your pantry" : "Fresh & stocked")
+                    if freshItems.isEmpty && needsAttention.isEmpty {
+                        ContentUnavailableView("Your pantry is empty", systemImage: "cabinet.fill", description: Text("Tap + to add the food you already have."))
+                    } else {
+                        VStack(spacing: 10) {
+                            ForEach(freshItems) { entry in
+                                pantryRow(entry)
+                            }
                         }
                     }
                 }
@@ -34,7 +38,7 @@ struct PantryView: View {
             .safeAreaInset(edge: .top, spacing: 0) {
                 AppTopBar(
                     title: "Pantry",
-                    subtitle: viewModel.subtitleLine,
+                    subtitle: subtitleLine,
                     trailingIcon: "plus",
                     onTrailingTap: { showingAddSheet = true }
                 )
@@ -52,6 +56,7 @@ struct PantryView: View {
         .sheet(isPresented: $showingAddSheet) {
             PantrySeedView(mode: .addItems)
                 .environmentObject(router)
+                .environmentObject(store)
         }
     }
 
@@ -61,7 +66,11 @@ struct PantryView: View {
             .foregroundStyle(AppTheme.basilGreen)
     }
 
-    private func pantryRow(_ entry: PantryEntry) -> some View {
+    private var needsAttention: [PantryItem] { store.pantry.filter { if case .fresh = Expirychecker.status(for: $0.expiryDate) { return false }; return true } }
+    private var freshItems: [PantryItem] { store.pantry.filter { if case .fresh = Expirychecker.status(for: $0.expiryDate) { return true }; return false } }
+    private var subtitleLine: String { "\(store.pantry.count) item\(store.pantry.count == 1 ? "" : "s") · \(needsAttention.count) need attention" }
+
+    private func pantryRow(_ entry: PantryItem) -> some View {
         let status = Expirychecker.status(for: entry.expiryDate)
 
         return HStack(spacing: 14) {
@@ -116,5 +125,5 @@ struct PantryView: View {
 
 #Preview {
     PantryView()
-        .environmentObject(AppRouter())
+        .environmentObject(AppRouter()).environmentObject(AppStore())
 }

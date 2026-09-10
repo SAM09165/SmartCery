@@ -6,7 +6,7 @@
 //
 
 import Foundation
-internal import Combine
+import Combine
 
 struct OnboardingPage: Identifiable {
     let id = UUID()

@@ -10,6 +10,7 @@ import SwiftUI
 struct DashboardView: View {
     @EnvironmentObject private var router: AppRouter
     @EnvironmentObject private var tabRouter: TabRouter
+    @EnvironmentObject private var store: AppStore
     @StateObject private var viewModel = DashboardViewModel()
 
     private let basilGreen = AppTheme.basilGreen
@@ -36,7 +37,7 @@ struct DashboardView: View {
             .safeAreaInset(edge: .top, spacing: 0) {
                 AppTopBar(
                     title: "Dashboard",
-                    subtitle: viewModel.greeting,
+                    subtitle: store.profile.map { "Hey, \($0.displayName)." } ?? viewModel.greeting,
                     trailingIcon: "cart.fill",
                     onTrailingTap: { tabRouter.selectedTab = .market }
                 )
@@ -65,7 +66,7 @@ struct DashboardView: View {
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(zestOrange)
 
-                Text(viewModel.chefLine)
+                Text(store.pantry.isEmpty ? viewModel.chefLine : "You have \(store.pantry.count) pantry items. Let’s use what is already in your kitchen first.")
                     .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(basilGreen)
                     .lineSpacing(2)
@@ -77,7 +78,7 @@ struct DashboardView: View {
 
     private var statRow: some View {
         HStack(spacing: 10) {
-            ForEach(viewModel.stats) { stat in
+            ForEach(stats) { stat in
                 VStack(alignment: .leading, spacing: 10) {
                     Image(systemName: stat.iconName)
                         .font(.system(size: 18, weight: .semibold))
@@ -96,6 +97,14 @@ struct DashboardView: View {
                 .background(cream, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
         }
+    }
+
+    private var stats: [DashboardStat] {
+        [
+            DashboardStat(title: "Pantry", value: "\(store.pantry.count) items", iconName: "cabinet.fill"),
+            DashboardStat(title: "Expiring", value: "\(store.pantry.filter { if case .fresh = Expirychecker.status(for: $0.expiryDate) { return false }; return true }.count)", iconName: "clock.badge.exclamationmark.fill"),
+            DashboardStat(title: "List", value: store.groceryList.isEmpty ? "Empty" : "\(store.groceryList.count) items", iconName: "cart.fill")
+        ]
     }
 
     private var pantrySetupCard: some View {
@@ -182,4 +191,5 @@ struct DashboardView: View {
     DashboardView()
         .environmentObject(AppRouter())
         .environmentObject(TabRouter())
+        .environmentObject(AppStore())
 }

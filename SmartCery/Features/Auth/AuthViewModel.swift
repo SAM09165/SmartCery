@@ -1,53 +1,37 @@
-//
-//  AuthViewModel.swift
-//  SmartCery
-//
-//  Created by Saalim Ajmerwala on 19/07/26.
-//
-
 import Foundation
-internal import Combine
+import Combine
 
 @MainActor
 final class AuthViewModel: ObservableObject {
+    enum Mode: Equatable { case signIn, createAccount }
+
     @Published var email = ""
     @Published var password = ""
-    @Published var isSignUpMode = true
-    @Published var statusMessage = "Chef Zest says: prove you are not here to buy cilantro again."
+    @Published private(set) var mode: Mode = .signIn
+    @Published private(set) var statusMessage = "Use any valid email and a six-character password to get started. Your kitchen data stays on this device."
 
-    var title: String {
-        isSignUpMode ? "Make your grocery life less chaotic." : "Welcome back, snack strategist."
-    }
-
-    var subtitle: String {
-        isSignUpMode ? "Create a mock account for now. Firebase joins the kitchen later." : "Sign in with mock data and get back to saving sad vegetables."
-    }
-
-    var primaryButtonTitle: String {
-        isSignUpMode ? "Create Mock Account" : "Mock Sign In"
-    }
-
-    var toggleTitle: String {
-        isSignUpMode ? "Already joined the fridge cult? Sign in" : "New here? Create account"
-    }
-
-    var canSubmit: Bool {
-        email.contains("@") && password.count >= 4
-    }
+    var title: String { mode == .signIn ? "Welcome back" : "Create your kitchen" }
+    var subtitle: String { mode == .signIn ? "Pick up where your pantry left off." : "Start tracking food, meals, and groceries in one place." }
+    var primaryButtonTitle: String { mode == .signIn ? "Continue" : "Create account" }
+    var toggleTitle: String { mode == .signIn ? "New here? Create an account" : "Already have an account? Sign in" }
 
     func toggleMode() {
-        isSignUpMode.toggle()
-        statusMessage = isSignUpMode ? "New account, new pantry personality." : "Welcome back. Your leftovers missed the judgment."
+        mode = mode == .signIn ? .createAccount : .signIn
+        statusMessage = mode == .signIn ? "Welcome back. Your saved kitchen is ready." : "Create a local profile to keep this kitchen personal."
     }
 
     func submit() -> Bool {
-        guard canSubmit else {
-            statusMessage = "Use a real-looking email and 4+ password characters. Even roast mode has standards."
+        let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmedEmail.contains("@"), trimmedEmail.contains(".") else {
+            statusMessage = "Enter a valid email address to continue."
             return false
         }
-
-        // TODO: Replace this mock success with Firebase Auth sign-in/sign-up later.
-        statusMessage = isSignUpMode ? "Account created. Chef Zest is sharpening the spatula." : "Signed in. Pantry chaos detected."
+        guard password.count >= 6 else {
+            statusMessage = "Use a password with at least six characters."
+            return false
+        }
+        email = trimmedEmail
+        statusMessage = "All set — your kitchen is ready."
         return true
     }
 }

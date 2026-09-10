@@ -6,7 +6,7 @@
 //
 
 import SwiftUI
-internal import Combine
+import Combine
 
 enum AppDestination {
     case loading
@@ -22,30 +22,27 @@ final class AppRouter: ObservableObject {
     
     private let minimumSplashNanoseconds: UInt64 = 1_200_000_000
     
-    private let mockHasCompletedOnboarding = false
-    private let mockIsLoggedIn = false
-    
     func resolveDestination() async {
         let hold = Task {
             try? await Task.sleep(nanoseconds: minimumSplashNanoseconds)
         }
-        guard mockHasCompletedOnboarding else {
+        guard UserDefaults.standard.bool(forKey: "smartcery.onboarding-complete") else {
             await hold.value
             destination = .onboarding
             return
         }
 
         await hold.value
-        destination = mockIsLoggedIn ? .dashboard(offline: false) : .auth
+        destination = UserDefaults.standard.bool(forKey: "smartcery.has-profile") ? .dashboard(offline: false) : .auth
     }
 
     func completeOnboarding() {
-        // TODO: Save onboarding completion with UserDefaults or Firebase user profile later.
+        UserDefaults.standard.set(true, forKey: "smartcery.onboarding-complete")
         destination = .auth
     }
 
     func completeMockAuth() {
-        // TODO: Replace with Firebase Auth result handling later.
+        UserDefaults.standard.set(true, forKey: "smartcery.has-profile")
         destination = .dashboard(offline: false)
     }
 

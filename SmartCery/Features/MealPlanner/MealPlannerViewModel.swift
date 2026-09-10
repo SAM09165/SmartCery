@@ -1,5 +1,5 @@
 import SwiftUI
-internal import Combine
+import Combine
 
 struct MealPlanDay: Identifiable, Hashable {
     let id = UUID()

@@ -1,18 +1,17 @@
-//
-//  FirebaseService.swift
-//  SmartCery
-//
-//  Created by Saalim Ajmerwala on 19/07/26.
-//
+import Foundation
 
-import SwiftUI
-
-struct FirebaseService: View {
-    var body: some View {
-        Text(/*@START_MENU_TOKEN@*/"Hello, World!"/*@END_MENU_TOKEN@*/)
-    }
+/// Reserved boundary for a future Firebase sync implementation. The app uses
+/// `AppStore` as a reliable local-first data source until sync is configured.
+final class FirebaseService {
+    static let shared = FirebaseService()
+    private init() {}
 }
 
-#Preview {
-    FirebaseService()
+struct RecipeDTO: Codable, Identifiable, Hashable {
+    var id: UUID
+    var title: String
+    var instructions: [String]
+    var ingredientIDs: [UUID]
+    var isFavorite: Bool
+    var createdAt: Date
 }

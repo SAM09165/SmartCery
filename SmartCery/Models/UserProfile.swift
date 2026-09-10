@@ -5,14 +5,9 @@
 //  Created by Saalim Ajmerwala on 19/07/26.
 //
 
-import SwiftUI
+import Foundation
 
-struct UserProfile: View {
-    var body: some View {
-        Text(/*@START_MENU_TOKEN@*/"Hello, World!"/*@END_MENU_TOKEN@*/)
-    }
-}
-
-#Preview {
-    UserProfile()
+struct UserProfile: Codable, Equatable {
+    var displayName: String
+    var email: String
 }

@@ -48,6 +48,14 @@ struct MainTabView: View {
             .tag(MainTab.pantry)
 
             NavigationStack {
+                GroceryListView()
+            }
+            .tabItem {
+                Label("List", systemImage: "checklist")
+            }
+            .tag(MainTab.groceryList)
+
+            NavigationStack {
                 MealPlannerview()
                     .environmentObject(groceryMarketVM)
             }
@@ -73,4 +81,5 @@ struct MainTabView: View {
 #Preview {
     MainTabView()
         .environmentObject(AppRouter())
+        .environmentObject(AppStore())
 }

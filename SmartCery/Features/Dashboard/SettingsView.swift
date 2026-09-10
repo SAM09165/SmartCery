@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct SettingsView: View {
+    @EnvironmentObject private var router: AppRouter
+    @EnvironmentObject private var store: AppStore
     @State private var notificationsEnabled = true
     @State private var expiryAlertsEnabled = true
     @State private var mealPlanRemindersEnabled = false
@@ -58,18 +60,18 @@ struct SettingsView: View {
 
     private var profileCard: some View {
         HStack(spacing: 14) {
-            Text("SA")
+                Text(initials)
                 .font(.system(size: 20, weight: .bold))
                 .foregroundStyle(AppTheme.cream)
                 .frame(width: 58, height: 58)
                 .background(AppTheme.basilGreen, in: Circle())
 
             VStack(alignment: .leading, spacing: 5) {
-                Text("Saalim Ajmerwala")
+                Text(store.profile?.displayName.capitalized ?? "Kitchen chef")
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(AppTheme.basilGreen)
 
-                Text("saalim@smartcery.app")
+                Text(store.profile?.email ?? "Offline kitchen")
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(AppTheme.basilGreen.opacity(0.62))
 
@@ -257,7 +259,9 @@ struct SettingsView: View {
 
     private var signOutButton: some View {
         Button {
-            selectedSheet = .signOut
+            store.signOut()
+            UserDefaults.standard.set(false, forKey: "smartcery.has-profile")
+            router.destination = .auth
         } label: {
             Label("Sign out", systemImage: "rectangle.portrait.and.arrow.right")
                 .font(.system(size: 15, weight: .semibold))
@@ -267,6 +271,11 @@ struct SettingsView: View {
                 .background(Color.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(.plain)
+    }
+
+    private var initials: String {
+        let words = (store.profile?.displayName ?? "Kitchen Chef").split(separator: " ")
+        return words.prefix(2).compactMap { $0.first }.map(String.init).joined().uppercased()
     }
 
     private func sectionHeader(_ title: String) -> some View {
@@ -444,4 +453,6 @@ private struct MoreDetailSheet: View {
     NavigationStack {
         SettingsView()
     }
+    .environmentObject(AppRouter())
+    .environmentObject(AppStore())
 }

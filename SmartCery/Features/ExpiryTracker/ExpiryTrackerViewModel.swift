@@ -1,5 +1,5 @@
 import Foundation
-internal import Combine
+import Combine
 
 enum ExpiryFilter: String, CaseIterable, Identifiable {
     case urgent = "Urgent"
@@ -10,8 +10,8 @@ enum ExpiryFilter: String, CaseIterable, Identifiable {
 }
 
 struct ExpiryTrackerItem: Identifiable {
-    let id: PantryEntry.ID
-    let entry: PantryEntry
+    let id: PantryItem.ID
+    let entry: PantryItem
     let daysLeft: Int?
     let status: ExpiryStatus
 
@@ -44,14 +44,14 @@ struct ExpiryTrackerItem: Identifiable {
 
 @MainActor
 final class ExpiryTrackerViewModel: ObservableObject {
-    @Published var items: [PantryEntry]
+    @Published var items: [PantryItem]
     @Published var selectedFilter: ExpiryFilter = .urgent
 
     private let calendar = Calendar.current
     private let referenceDate: Date
 
-    init(items: [PantryEntry]? = nil, referenceDate: Date = Date()) {
-        self.items = items ?? PantryCatalog.sample
+    init(items: [PantryItem] = [], referenceDate: Date = Date()) {
+        self.items = items
         self.referenceDate = referenceDate
     }
 
@@ -127,16 +127,12 @@ final class ExpiryTrackerViewModel: ObservableObject {
         let baseDate = entry.expiryDate ?? referenceDate
         let extendedDate = calendar.date(byAdding: .day, value: days, to: baseDate) ?? baseDate
 
-        items[index] = PantryEntry(
-            name: entry.name,
-            category: entry.category,
-            quantity: entry.quantity,
-            expiryDate: extendedDate,
-            iconName: entry.iconName
-        )
+        items[index].expiryDate = extendedDate
     }
 
-    private func trackerItem(for entry: PantryEntry) -> ExpiryTrackerItem {
+    func replaceItems(_ items: [PantryItem]) { self.items = items }
+
+    private func trackerItem(for entry: PantryItem) -> ExpiryTrackerItem {
         let daysLeft = entry.expiryDate.map { expiryDate in
             let start = calendar.startOfDay(for: referenceDate)
             let end = calendar.startOfDay(for: expiryDate)

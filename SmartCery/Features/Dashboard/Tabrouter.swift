@@ -1,5 +1,5 @@
 import Foundation
-internal import Combine
+import Combine
 
 enum MainTab: Hashable {
     case dashboard

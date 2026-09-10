@@ -14,6 +14,7 @@ enum PantrySeedMode {
 
 struct PantrySeedView: View {
     @EnvironmentObject private var router: AppRouter
+    @EnvironmentObject private var store: AppStore
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel = PantrySeedViewModel()
 
@@ -166,8 +167,13 @@ struct PantrySeedView: View {
         VStack(spacing: 12) {
             Button {
                 viewModel.saveSelection()
-                router.completePantrySeed()
-                dismiss()
+                store.addPantryItems(viewModel.selectedItems.map(makePantryItem))
+                if mode == .firstTime {
+                    store.completeOnboarding()
+                    router.completePantrySeed()
+                } else {
+                    dismiss()
+                }
             } label: {
                 HStack {
                     Text(mode == .addItems ? "Add \(viewModel.selectedCount) Items" : viewModel.primaryButtonTitle)
@@ -190,14 +196,25 @@ struct PantrySeedView: View {
         .padding(.bottom, 18)
         .background(softCream)
     }
+
+    private func makePantryItem(_ item: PantrySeedItem) -> PantryItem {
+        let expiryDays: Int? = switch item.category {
+        case "Dairy": 5
+        case "Protein": 3
+        case "Veg", "Bakery": 4
+        default: nil
+        }
+        let expiryDate = expiryDays.flatMap { Calendar.current.date(byAdding: .day, value: $0, to: .now) }
+        return PantryItem(name: item.name, category: item.category, quantity: "1 item", expiryDate: expiryDate, iconName: item.iconName)
+    }
 }
 
 #Preview {
     Group {
-        PantrySeedView(mode: .firstTime)
-            .environmentObject(AppRouter())
+            PantrySeedView(mode: .firstTime)
+            .environmentObject(AppRouter()).environmentObject(AppStore())
 
-        PantrySeedView(mode: .addItems)
-            .environmentObject(AppRouter())
+            PantrySeedView(mode: .addItems)
+            .environmentObject(AppRouter()).environmentObject(AppStore())
     }
 }

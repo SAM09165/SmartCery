@@ -9,6 +9,7 @@ import SwiftUI
 
 struct AuthView: View {
     @EnvironmentObject private var router: AppRouter
+    @EnvironmentObject private var store: AppStore
     @StateObject private var viewModel = AuthViewModel()
     @FocusState private var focusedField: Field?
 
@@ -168,6 +169,7 @@ struct AuthView: View {
         VStack(spacing: 14) {
             Button {
                 if viewModel.submit() {
+                    store.signIn(email: viewModel.email)
                     router.completeMockAuth()
                 }
             } label: {
@@ -207,4 +209,5 @@ private enum Field {
 #Preview {
     AuthView()
         .environmentObject(AppRouter())
+        .environmentObject(AppStore())
 }

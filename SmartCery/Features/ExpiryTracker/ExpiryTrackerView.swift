@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ExpiryTrackerView: View {
     @StateObject private var viewModel = ExpiryTrackerViewModel()
+    @EnvironmentObject private var store: AppStore
 
     var body: some View {
         ZStack {
@@ -34,6 +35,8 @@ struct ExpiryTrackerView: View {
             }
         }
         .toolbar(.hidden, for: .navigationBar)
+        .task { viewModel.replaceItems(store.pantry) }
+        .onChange(of: store.pantry) { _, items in viewModel.replaceItems(items) }
     }
 
     private var rescueCard: some View {
@@ -199,7 +202,7 @@ struct ExpiryTrackerView: View {
 
             HStack(spacing: 10) {
                 Button {
-                    viewModel.markUsed(item)
+                    store.removePantryItem(item.id)
                 } label: {
                     Label("Used", systemImage: "checkmark")
                         .font(.system(size: 13, weight: .semibold))
@@ -211,7 +214,7 @@ struct ExpiryTrackerView: View {
                 .buttonStyle(.plain)
 
                 Button {
-                    viewModel.extend(item)
+                    store.extendPantryItem(item.id)
                 } label: {
                     Label("+3d", systemImage: "calendar.badge.plus")
                         .font(.system(size: 13, weight: .semibold))
@@ -259,4 +262,5 @@ struct ExpiryTrackerView: View {
 
 #Preview {
     ExpiryTrackerView()
+        .environmentObject(AppStore())
 }

@@ -6,7 +6,7 @@
 //
 
 import Foundation
-internal import Combine
+import Combine
 
 struct PantrySeedItem: Identifiable {
     let id = UUID()
@@ -67,7 +67,11 @@ final class PantrySeedViewModel: ObservableObject {
     }
 
     func saveSelection() {
-        // TODO: Save selected pantry seed items to SwiftData later.
+        // Persistence is coordinated by PantrySeedView, which owns AppStore.
+    }
+
+    var selectedItems: [PantrySeedItem] {
+        items.filter { selectedItemIDs.contains($0.id) }
     }
 
     private func updateChefLine() {
