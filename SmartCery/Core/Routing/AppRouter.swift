@@ -1,10 +1,3 @@
-//
-//  AppRouter.swift
-//  SmartCery
-//
-//  Created by Saalim Ajmerwala on 19/07/26.
-//
-
 import SwiftUI
 import Combine
 
@@ -19,31 +12,48 @@ enum AppDestination {
 @MainActor
 final class AppRouter: ObservableObject {
     @Published var destination: AppDestination = .loading
-    
+
     private let minimumSplashNanoseconds: UInt64 = 1_200_000_000
-    
-    func resolveDestination() async {
+    private let onboardingKey = "smartcery.onboarding-complete"
+
+    func resolveDestination(authState: SessionManager.AuthState) async {
         let hold = Task {
             try? await Task.sleep(nanoseconds: minimumSplashNanoseconds)
         }
-        guard UserDefaults.standard.bool(forKey: "smartcery.onboarding-complete") else {
+
+        guard UserDefaults.standard.bool(forKey: onboardingKey) else {
             await hold.value
             destination = .onboarding
             return
         }
 
         await hold.value
-        destination = UserDefaults.standard.bool(forKey: "smartcery.has-profile") ? .dashboard(offline: false) : .auth
+        route(for: authState)
+    }
+
+    func route(for authState: SessionManager.AuthState) {
+        guard UserDefaults.standard.bool(forKey: onboardingKey) else {
+            destination = .onboarding
+            return
+        }
+
+        switch authState {
+        case .unknown:
+            destination = .loading
+        case .signedOut:
+            destination = .auth
+        case .signedIn(let needsPantrySeed):
+            destination = needsPantrySeed ? .pantrySeed : .dashboard(offline: false)
+        }
     }
 
     func completeOnboarding() {
-        UserDefaults.standard.set(true, forKey: "smartcery.onboarding-complete")
+        UserDefaults.standard.set(true, forKey: onboardingKey)
         destination = .auth
     }
 
-    func completeMockAuth() {
-        UserDefaults.standard.set(true, forKey: "smartcery.has-profile")
-        destination = .dashboard(offline: false)
+    func completeAuth(needsPantrySeed: Bool) {
+        destination = needsPantrySeed ? .pantrySeed : .dashboard(offline: false)
     }
 
     func openPantrySeed() {
@@ -51,7 +61,6 @@ final class AppRouter: ObservableObject {
     }
 
     func completePantrySeed() {
-        // TODO: Check saved pantry items before showing dashboard later.
         destination = .dashboard(offline: false)
     }
 

@@ -9,6 +9,7 @@ import SwiftUI
 
 struct SplashView: View {
     @EnvironmentObject private var router: AppRouter
+    @EnvironmentObject private var sessionManager: SessionManager
 
     @State private var logoScale: CGFloat = 0.8
     @State private var logoOpacity: Double = 0
@@ -57,7 +58,8 @@ struct SplashView: View {
                 textOpacity = 1
             }
 
-            await router.resolveDestination()
+            let authState = await sessionManager.waitForResolvedAuthState()
+            await router.resolveDestination(authState: authState)
         }
     }
 }
@@ -96,4 +98,5 @@ private struct GroceryLogoMark: View {
 #Preview {
     SplashView()
         .environmentObject(AppRouter())
+        .environmentObject(SessionManager())
 }

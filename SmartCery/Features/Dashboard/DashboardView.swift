@@ -12,6 +12,7 @@ struct DashboardView: View {
     @EnvironmentObject private var tabRouter: TabRouter
     @EnvironmentObject private var store: AppStore
     @StateObject private var viewModel = DashboardViewModel()
+    @State private var isPulsing = false
 
     private let basilGreen = AppTheme.basilGreen
     private let zestOrange = AppTheme.zestOrange
@@ -24,14 +25,15 @@ struct DashboardView: View {
             softCream.ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 22) {
+                VStack(alignment: .leading, spacing: 20) {
+                    liveBlinkitBanner
                     chefCard
                     statRow
                     pantrySetupCard
                     nextUpSection
                 }
-                .padding(.horizontal, 22)
-                .padding(.top, 18)
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
                 .padding(.bottom, 28)
             }
             .safeAreaInset(edge: .top, spacing: 0) {
@@ -41,7 +43,7 @@ struct DashboardView: View {
                     trailingIcon: "cart.fill",
                     onTrailingTap: { tabRouter.selectedTab = .market }
                 )
-                .padding(.horizontal, 22)
+                .padding(.horizontal, 20)
                 .padding(.vertical, 14)
                 .background(
                     Rectangle()
@@ -51,6 +53,64 @@ struct DashboardView: View {
             }
         }
         .toolbar(.hidden, for: .navigationBar)
+        .onAppear {
+            viewModel.updateTimeOfDay()
+        }
+    }
+
+    private var liveBlinkitBanner: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(Color.green)
+                    .frame(width: 8, height: 8)
+                    .scaleEffect(isPulsing ? 1.35 : 0.85)
+                    .opacity(isPulsing ? 1.0 : 0.4)
+                    .onAppear {
+                        withAnimation(.easeInOut(duration: 0.85).repeatForever(autoreverses: true)) {
+                            isPulsing = true
+                        }
+                    }
+
+                Text(viewModel.timeOfDay.title)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(.white)
+
+                Spacer()
+
+                Image(systemName: viewModel.timeOfDay.iconName)
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.95))
+            }
+
+            Text(viewModel.timeOfDay.subtitle)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.white.opacity(0.9))
+
+            HStack(spacing: 6) {
+                Text(viewModel.livePromos[viewModel.activeBannerIndex])
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 11)
+                    .padding(.vertical, 6)
+                    .background(Color.white.opacity(0.22), in: Capsule())
+                    .id("banner_\(viewModel.activeBannerIndex)")
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .bottom).combined(with: .opacity),
+                        removal: .move(edge: .top).combined(with: .opacity)
+                    ))
+            }
+        }
+        .padding(16)
+        .background(
+            LinearGradient(
+                colors: viewModel.timeOfDay.gradientColors,
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            in: RoundedRectangle(cornerRadius: 22, style: .continuous)
+        )
+        .shadow(color: viewModel.timeOfDay.gradientColors.first?.opacity(0.32) ?? .clear, radius: 10, x: 0, y: 5)
     }
 
     private var chefCard: some View {
@@ -156,8 +216,14 @@ struct DashboardView: View {
                 .foregroundStyle(basilGreen)
 
             VStack(spacing: 10) {
-                nextUpRow(iconName: "calendar", title: "Meal planner", subtitle: "Coming after pantry setup")
-                nextUpRow(iconName: "bell.badge.fill", title: "Expiry alerts", subtitle: "Soon: rescue food before it becomes fridge drama")
+                Button {
+                    tabRouter.selectedTab = .mealPlanner
+                } label: {
+                    nextUpRow(iconName: "calendar", title: "Meal planner", subtitle: "Plan meals with pantry items")
+                }
+                .buttonStyle(.plain)
+
+                nextUpRow(iconName: "bell.badge.fill", title: "Expiry alerts", subtitle: "Rescue food before it becomes fridge drama")
             }
         }
     }
@@ -181,6 +247,10 @@ struct DashboardView: View {
             }
 
             Spacer()
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(basilGreen.opacity(0.4))
         }
         .padding(14)
         .background(elevatedSurface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))

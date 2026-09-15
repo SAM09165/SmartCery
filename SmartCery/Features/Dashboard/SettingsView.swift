@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject private var router: AppRouter
     @EnvironmentObject private var store: AppStore
+    @EnvironmentObject private var sessionManager: SessionManager
     @State private var notificationsEnabled = true
     @State private var expiryAlertsEnabled = true
     @State private var mealPlanRemindersEnabled = false
@@ -260,7 +261,7 @@ struct SettingsView: View {
     private var signOutButton: some View {
         Button {
             store.signOut()
-            UserDefaults.standard.set(false, forKey: "smartcery.has-profile")
+            sessionManager.signOut()
             router.destination = .auth
         } label: {
             Label("Sign out", systemImage: "rectangle.portrait.and.arrow.right")
@@ -455,4 +456,5 @@ private struct MoreDetailSheet: View {
     }
     .environmentObject(AppRouter())
     .environmentObject(AppStore())
+    .environmentObject(SessionManager())
 }

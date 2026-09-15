@@ -10,6 +10,7 @@ import SwiftUI
 struct AuthView: View {
     @EnvironmentObject private var router: AppRouter
     @EnvironmentObject private var store: AppStore
+    @EnvironmentObject private var sessionManager: SessionManager
     @StateObject private var viewModel = AuthViewModel()
     @FocusState private var focusedField: Field?
 
@@ -134,7 +135,7 @@ struct AuthView: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(basilGreen.opacity(0.58))
 
-                SecureField("4+ characters", text: $viewModel.password)
+                SecureField("6+ characters", text: $viewModel.password)
                     .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(basilGreen)
                     .focused($focusedField, equals: .password)
@@ -168,14 +169,21 @@ struct AuthView: View {
     private var actionButtons: some View {
         VStack(spacing: 14) {
             Button {
-                if viewModel.submit() {
-                    store.signIn(email: viewModel.email)
-                    router.completeMockAuth()
+                Task {
+                    guard let record = await viewModel.submit() else { return }
+                    sessionManager.applySignedInRecord(record)
+                    store.setProfile(record.profile)
+                    router.completeAuth(needsPantrySeed: !record.hasCompletedPantrySeed)
                 }
             } label: {
                 HStack {
-                    Text(viewModel.primaryButtonTitle)
-                    Image(systemName: "arrow.right")
+                    if viewModel.isSubmitting {
+                        ProgressView()
+                            .tint(cream)
+                    } else {
+                        Text(viewModel.primaryButtonTitle)
+                        Image(systemName: "arrow.right")
+                    }
                 }
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(cream)
@@ -183,6 +191,8 @@ struct AuthView: View {
                 .padding(.vertical, 16)
                 .background(basilGreen, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
+            .disabled(viewModel.isSubmitting)
+            .opacity(viewModel.isSubmitting ? 0.72 : 1)
 
             Button(viewModel.toggleTitle) {
                 withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
@@ -210,4 +220,5 @@ private enum Field {
     AuthView()
         .environmentObject(AppRouter())
         .environmentObject(AppStore())
+        .environmentObject(SessionManager())
 }

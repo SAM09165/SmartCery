@@ -15,6 +15,7 @@ enum PantrySeedMode {
 struct PantrySeedView: View {
     @EnvironmentObject private var router: AppRouter
     @EnvironmentObject private var store: AppStore
+    @EnvironmentObject private var sessionManager: SessionManager
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel = PantrySeedViewModel()
 
@@ -166,13 +167,17 @@ struct PantrySeedView: View {
     private var bottomBar: some View {
         VStack(spacing: 12) {
             Button {
-                viewModel.saveSelection()
-                store.addPantryItems(viewModel.selectedItems.map(makePantryItem))
-                if mode == .firstTime {
-                    store.completeOnboarding()
-                    router.completePantrySeed()
-                } else {
-                    dismiss()
+                Task {
+                    viewModel.saveSelection()
+                    store.addPantryItems(viewModel.selectedItems.map(makePantryItem))
+                    if mode == .firstTime {
+                        store.completeOnboarding()
+                        try? await FirebaseService.shared.markPantrySeedCompleted()
+                        sessionManager.markPantrySeedCompleted()
+                        router.completePantrySeed()
+                    } else {
+                        dismiss()
+                    }
                 }
             } label: {
                 HStack {
@@ -212,7 +217,7 @@ struct PantrySeedView: View {
 #Preview {
     Group {
             PantrySeedView(mode: .firstTime)
-            .environmentObject(AppRouter()).environmentObject(AppStore())
+            .environmentObject(AppRouter()).environmentObject(AppStore()).environmentObject(SessionManager())
 
             PantrySeedView(mode: .addItems)
             .environmentObject(AppRouter()).environmentObject(AppStore())

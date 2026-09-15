@@ -9,7 +9,18 @@ final class GroceryMarketViewModel: ObservableObject {
     @Published private(set) var quantities: [UUID: Int] = [:]
     @Published var selectedCategory: String = "All"
     @Published var searchText: String = ""
-    @Published var orderPlacedMessage: String?
+    @Published var deliveryAddress: String = "Home · 21 Park Street, Suite 4B"
+    @Published var promoCode: String = ""
+    @Published var discountAmount: Double = 0
+    @Published var activeOrder: MarketOrder?
+
+    struct MarketOrder: Identifiable {
+        let id = UUID()
+        let items: [(item: MarketItem, quantity: Int)]
+        let total: Double
+        let timestamp = Date()
+        var step: Int = 1 // 1: Confirmed, 2: Packing, 3: Out for Delivery, 4: Delivered
+    }
 
     init() {
         var seen: [String] = []
@@ -29,7 +40,6 @@ final class GroceryMarketViewModel: ObservableObject {
         }
     }
 
-    // Total items across the whole cart — drives the tab badge in MainTabView
     var cartCount: Int {
         quantities.values.reduce(0, +)
     }
@@ -52,12 +62,12 @@ final class GroceryMarketViewModel: ObservableObject {
     }
 
     var total: Double {
-        subtotal + deliveryFee
+        max(0, subtotal - discountAmount) + deliveryFee
     }
 
     var cartStatusLine: String {
         cartCount == 0
-            ? "Fresh groceries delivered fast"
+            ? "⚡ 15 min express delivery"
             : "\(cartCount) item\(cartCount == 1 ? "" : "s") · \(formatPrice(total))"
     }
 
@@ -78,15 +88,36 @@ final class GroceryMarketViewModel: ObservableObject {
         }
     }
 
+    func addBundle(itemNames: [String]) {
+        for name in itemNames {
+            if let matched = items.first(where: { $0.name.caseInsensitiveCompare(name) == .orderedSame || $0.name.localizedCaseInsensitiveContains(name) }) {
+                increment(matched)
+            }
+        }
+    }
+
     func focusMarket(on neededItems: [String]) {
         selectedCategory = "All"
         searchText = neededItems.first ?? ""
     }
 
+    func applyPromo() {
+        let clean = promoCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        if clean == "SMART20" || clean == "ZEST10" {
+            discountAmount = 3.00
+        } else {
+            discountAmount = 0
+        }
+    }
+
     func placeOrder() {
         guard cartCount > 0 else { return }
-        orderPlacedMessage = "Order placed for \(cartCount) item\(cartCount == 1 ? "" : "s") · \(formatPrice(total))"
+        let currentCart = cartItems
+        let finalTotal = total
+        activeOrder = MarketOrder(items: currentCart, total: finalTotal, step: 1)
         quantities.removeAll()
+        discountAmount = 0
+        promoCode = ""
     }
 
     func formatPrice(_ value: Double) -> String {

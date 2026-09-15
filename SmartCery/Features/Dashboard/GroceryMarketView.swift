@@ -5,7 +5,9 @@ struct GroceryMarketView: View {
     @EnvironmentObject var tabRouter: TabRouter
     @State private var selectedItem: MarketItem?
     @State private var showingCart = false
+    @State private var showingOrderTracker = false
     @FocusState private var isSearchFieldFocused: Bool
+    @State private var isPulsing = false
 
     private let columns = [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
 
@@ -15,8 +17,9 @@ struct GroceryMarketView: View {
 
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 18) {
+                    deliveryHeaderBar
                     searchBar
-                    marketHero
+                    quickBundlesCarousel
                     categoryChips
                     itemGrid
                 }
@@ -55,27 +58,62 @@ struct GroceryMarketView: View {
                 .environmentObject(viewModel)
         }
         .sheet(isPresented: $showingCart) {
-            CartSheet()
-                .environmentObject(viewModel)
+            CartSheet(onOrderPlaced: {
+                showingOrderTracker = true
+            })
+            .environmentObject(viewModel)
         }
-        .alert("Market", isPresented: orderAlertBinding) {
-            Button("Done", role: .cancel) {
-                viewModel.orderPlacedMessage = nil
+        .sheet(isPresented: $showingOrderTracker) {
+            if let order = viewModel.activeOrder {
+                ActiveOrderSheet(order: order)
             }
-        } message: {
-            Text(viewModel.orderPlacedMessage ?? "")
         }
     }
 
-    private var orderAlertBinding: Binding<Bool> {
-        Binding(
-            get: { viewModel.orderPlacedMessage != nil },
-            set: { isPresented in
-                if !isPresented {
-                    viewModel.orderPlacedMessage = nil
+    private var deliveryHeaderBar: some View {
+        HStack(spacing: 12) {
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(Color.green)
+                    .frame(width: 8, height: 8)
+                    .scaleEffect(isPulsing ? 1.3 : 0.85)
+                    .opacity(isPulsing ? 1.0 : 0.4)
+                    .onAppear {
+                        withAnimation(.easeInOut(duration: 0.85).repeatForever(autoreverses: true)) {
+                            isPulsing = true
+                        }
+                    }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("⚡ 15-25 MINS")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(AppTheme.zestOrange)
+
+                    Text(viewModel.deliveryAddress)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(AppTheme.basilGreen)
+                        .lineLimit(1)
                 }
             }
-        )
+
+            Spacer(minLength: 0)
+
+            if viewModel.activeOrder != nil {
+                Button {
+                    showingOrderTracker = true
+                } label: {
+                    Label("Track Order", systemImage: "bolt.fill")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(AppTheme.cream)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(AppTheme.zestOrange, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(14)
+        .background(AppTheme.elevatedSurface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
     private var searchBar: some View {
@@ -106,31 +144,73 @@ struct GroceryMarketView: View {
         .background(AppTheme.elevatedSurface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
-    private var marketHero: some View {
-        HStack(alignment: .top, spacing: 14) {
-            Image(systemName: "shippingbox.fill")
-                .font(.system(size: 24, weight: .bold))
-                .foregroundStyle(AppTheme.zestOrange)
-                .frame(width: 42, height: 42)
-                .background(AppTheme.cream, in: Circle())
+    private var quickBundlesCarousel: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Featured Bundles")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(AppTheme.basilGreen)
 
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Shop meal-plan gaps and pantry staples.")
-                    .font(.system(size: 18, weight: .semibold))
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    bundleCard(
+                        title: "Morning Breakfast Pack",
+                        subtitle: "Whole Milk • Eggs • Sourdough",
+                        price: "$13.77",
+                        iconName: "sunrise.fill",
+                        itemNames: ["Whole Milk", "Large Eggs (12)", "Sourdough Bread"]
+                    )
+
+                    bundleCard(
+                        title: "Smoothie Essentials",
+                        subtitle: "Bananas • Blueberries • Yogurt",
+                        price: "$10.57",
+                        iconName: "takeoutbag.and.cup.and.straw.fill",
+                        itemNames: ["Bananas", "Blueberries", "Greek Yogurt"]
+                    )
+                }
+            }
+        }
+    }
+
+    private func bundleCard(title: String, subtitle: String, price: String, iconName: String, itemNames: [String]) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Image(systemName: iconName)
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(AppTheme.zestOrange)
+
+                Spacer()
+
+                Text(price)
+                    .font(.system(size: 14, weight: .bold))
                     .foregroundStyle(AppTheme.basilGreen)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                Text("Every item shows price, pack size, freshness window, source, delivery estimate, and stock before you add it.")
-                    .font(.system(size: 14, weight: .regular))
-                    .foregroundStyle(AppTheme.basilGreen.opacity(0.66))
-                    .lineSpacing(2)
-                    .fixedSize(horizontal: false, vertical: true)
             }
 
-            Spacer(minLength: 0)
+            Text(title)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(AppTheme.basilGreen)
+
+            Text(subtitle)
+                .font(.system(size: 12, weight: .regular))
+                .foregroundStyle(AppTheme.basilGreen.opacity(0.65))
+
+            Button {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                    viewModel.addBundle(itemNames: itemNames)
+                }
+            } label: {
+                Label("Add Bundle", systemImage: "plus.circle.fill")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(AppTheme.cream)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 7)
+                    .background(AppTheme.basilGreen, in: Capsule())
+            }
+            .buttonStyle(.plain)
         }
-        .padding(16)
-        .background(AppTheme.elevatedSurface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .frame(width: 210)
+        .padding(14)
+        .background(AppTheme.cream, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
     private var categoryChips: some View {
@@ -205,7 +285,7 @@ struct GroceryMarketView: View {
                         .foregroundStyle(AppTheme.basilGreen.opacity(0.58))
                         .lineLimit(1)
 
-                    Text("\(viewModel.formatPrice(item.price)) · \(item.expiryWindow)")
+                    Text("\(viewModel.formatPrice(item.price)) • \(item.expiryWindow)")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(AppTheme.basilGreen)
                         .lineLimit(1)
@@ -398,7 +478,7 @@ private struct ProductDetailSheet: View {
                 .font(.system(size: 26, weight: .semibold))
                 .foregroundStyle(AppTheme.basilGreen)
 
-            Text("\(item.unit) · \(item.category)")
+            Text("\(item.unit) • \(item.category)")
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(AppTheme.basilGreen.opacity(0.62))
         }
@@ -448,9 +528,27 @@ private struct ProductDetailSheet: View {
     }
 }
 
+private struct FlowLayout<Content: View>: View {
+    let spacing: CGFloat
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: spacing) {
+                content
+            }
+
+            VStack(alignment: .leading, spacing: spacing) {
+                content
+            }
+        }
+    }
+}
+
 private struct CartSheet: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var viewModel: GroceryMarketViewModel
+    let onOrderPlaced: () -> Void
 
     var body: some View {
         NavigationStack {
@@ -466,13 +564,14 @@ private struct CartSheet: View {
                                 cartRow(item: cartLine.item, quantity: cartLine.quantity)
                             }
 
+                            promoCodeBox
                             totalsCard
                         }
                         .padding(20)
                     }
                 }
             }
-            .navigationTitle("Cart")
+            .navigationTitle("Your Cart")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -486,8 +585,9 @@ private struct CartSheet: View {
                     Button {
                         viewModel.placeOrder()
                         dismiss()
+                        onOrderPlaced()
                     } label: {
-                        Text("Place order · \(viewModel.formatPrice(viewModel.total))")
+                        Text("Place order • \(viewModel.formatPrice(viewModel.total))")
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundStyle(AppTheme.cream)
                             .frame(maxWidth: .infinity)
@@ -528,7 +628,7 @@ private struct CartSheet: View {
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(AppTheme.basilGreen)
 
-                Text("\(quantity)x \(item.unit) · \(item.expiryWindow)")
+                Text("\(quantity)x \(item.unit) • \(item.expiryWindow)")
                     .font(.system(size: 12, weight: .regular))
                     .foregroundStyle(AppTheme.basilGreen.opacity(0.62))
             }
@@ -543,9 +643,32 @@ private struct CartSheet: View {
         .background(AppTheme.elevatedSurface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
+    private var promoCodeBox: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "tag.fill")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(AppTheme.zestOrange)
+
+            TextField("Promo code (e.g. SMART20)", text: $viewModel.promoCode)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(AppTheme.basilGreen)
+
+            Button("Apply") {
+                viewModel.applyPromo()
+            }
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(AppTheme.basilGreen)
+        }
+        .padding(14)
+        .background(AppTheme.cream, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
     private var totalsCard: some View {
         VStack(spacing: 10) {
             totalRow("Subtotal", value: viewModel.formatPrice(viewModel.subtotal))
+            if viewModel.discountAmount > 0 {
+                totalRow("Discount", value: "-\(viewModel.formatPrice(viewModel.discountAmount))")
+            }
             totalRow("Delivery", value: viewModel.deliveryFee == 0 ? "Free" : viewModel.formatPrice(viewModel.deliveryFee))
             Divider()
             totalRow("Total", value: viewModel.formatPrice(viewModel.total), isStrong: true)
@@ -557,35 +680,101 @@ private struct CartSheet: View {
     private func totalRow(_ title: String, value: String, isStrong: Bool = false) -> some View {
         HStack {
             Text(title)
+                .font(.system(size: isStrong ? 16 : 14, weight: isStrong ? .semibold : .medium))
+                .foregroundStyle(AppTheme.basilGreen)
             Spacer()
             Text(value)
+                .font(.system(size: isStrong ? 17 : 14, weight: isStrong ? .bold : .semibold))
+                .foregroundStyle(isStrong ? AppTheme.zestOrange : AppTheme.basilGreen)
         }
-        .font(.system(size: isStrong ? 16 : 14, weight: isStrong ? .semibold : .medium))
-        .foregroundStyle(AppTheme.basilGreen)
     }
 }
 
-private struct FlowLayout<Content: View>: View {
-    let spacing: CGFloat
-    @ViewBuilder let content: Content
+private struct ActiveOrderSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let order: GroceryMarketViewModel.MarketOrder
 
     var body: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: spacing) {
-                content
-            }
+        NavigationStack {
+            ZStack {
+                AppTheme.softCream.ignoresSafeArea()
 
-            VStack(alignment: .leading, spacing: spacing) {
-                content
+                VStack(spacing: 22) {
+                    Image(systemName: "shippingbox.circle.fill")
+                        .font(.system(size: 64, weight: .bold))
+                        .foregroundStyle(AppTheme.zestOrange)
+
+                    VStack(spacing: 6) {
+                        Text("Order Out For Delivery 🚀")
+                            .font(.system(size: 22, weight: .bold))
+                            .foregroundStyle(AppTheme.basilGreen)
+
+                        Text("Estimated arrival in 18 minutes")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(AppTheme.basilGreen.opacity(0.68))
+                    }
+
+                    // Progress bar
+                    HStack(spacing: 6) {
+                        ForEach(1...4, id: \.self) { step in
+                            Capsule()
+                                .fill(step <= order.step ? AppTheme.zestOrange : AppTheme.basilGreen.opacity(0.15))
+                                .frame(height: 6)
+                        }
+                    }
+                    .padding(.horizontal, 40)
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Order Summary")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(AppTheme.basilGreen)
+
+                        ForEach(order.items, id: \.item.id) { line in
+                            HStack {
+                                Text("\(line.quantity)x \(line.item.name)")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundStyle(AppTheme.basilGreen)
+                                Spacer()
+                                Text(line.item.unit)
+                                    .font(.system(size: 13, weight: .regular))
+                                    .foregroundStyle(AppTheme.basilGreen.opacity(0.6))
+                            }
+                        }
+
+                        Divider()
+
+                        HStack {
+                            Text("Total Paid")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(AppTheme.basilGreen)
+                            Spacer()
+                            Text(String(format: "$%.2f", order.total))
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundStyle(AppTheme.zestOrange)
+                        }
+                    }
+                    .padding(16)
+                    .background(AppTheme.cream, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+
+                    Spacer()
+                }
+                .padding(24)
+            }
+            .navigationTitle("Live Order Tracker")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
             }
         }
     }
 }
 
 #Preview {
-    NavigationStack {
-        GroceryMarketView()
-            .environmentObject(GroceryMarketViewModel())
-            .environmentObject(TabRouter())
-    }
+    GroceryMarketView()
+        .environmentObject(GroceryMarketViewModel())
+        .environmentObject(TabRouter())
 }

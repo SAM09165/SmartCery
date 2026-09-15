@@ -1,14 +1,9 @@
-//
-//  RootView.swift
-//  SmartCery
-//
-//  Created by Saalim Ajmerwala on 19/07/26.
-//
-
 import SwiftUI
 
 struct RootView: View {
     @EnvironmentObject private var router: AppRouter
+    @EnvironmentObject private var store: AppStore
+    @EnvironmentObject private var sessionManager: SessionManager
 
     var body: some View {
         Group {
@@ -25,6 +20,41 @@ struct RootView: View {
                 MainTabView()
             }
         }
+        .onChange(of: sessionManager.profile) { _, _ in
+            prepareStoreForCurrentSession()
+        }
+        .onChange(of: sessionManager.authState) { _, authState in
+            handleAuthState(authState)
+        }
+        .task {
+            await sessionManager.waitForResolvedAuthState()
+        }
+    }
+
+    private func handleAuthState(_ authState: SessionManager.AuthState) {
+        switch authState {
+        case .unknown:
+            break
+        case .signedOut:
+            store.stopCloudSync()
+        case .signedIn:
+            prepareStoreForCurrentSession()
+        }
+
+        guard !isShowingSplash else { return }
+        router.route(for: authState)
+    }
+
+    private func prepareStoreForCurrentSession() {
+        guard let uid = sessionManager.currentUserID, let profile = sessionManager.profile else { return }
+        store.prepareForSignedInUser(uid: uid, profile: profile)
+    }
+
+    private var isShowingSplash: Bool {
+        if case .loading = router.destination {
+            return true
+        }
+        return false
     }
 }
 
@@ -32,4 +62,5 @@ struct RootView: View {
     RootView()
         .environmentObject(AppRouter())
         .environmentObject(AppStore())
+        .environmentObject(SessionManager())
 }

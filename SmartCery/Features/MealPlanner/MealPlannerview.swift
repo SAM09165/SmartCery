@@ -86,6 +86,7 @@ struct MealPlannerview: View {
             HStack(spacing: 10) {
                 ForEach(viewModel.days) { day in
                     let isSelected = day.id == viewModel.selectedDayID
+                    let isToday = day.weekday == "Today"
 
                     Button {
                         viewModel.selectedDayID = day.id
@@ -105,7 +106,7 @@ struct MealPlannerview: View {
                         )
                         .overlay {
                             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .stroke(AppTheme.basilGreen.opacity(isSelected ? 0 : 0.12), lineWidth: 1)
+                                .stroke(isToday ? AppTheme.zestOrange : AppTheme.basilGreen.opacity(isSelected ? 0 : 0.12), lineWidth: isToday ? 2 : 1)
                         }
                     }
                     .buttonStyle(.plain)
@@ -218,6 +219,17 @@ struct MealPlannerview: View {
                 }
 
                 Spacer(minLength: 0)
+
+                Button {
+                    withAnimation {
+                        viewModel.deleteMeal(id: meal.id)
+                    }
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(AppTheme.basilGreen.opacity(0.45))
+                }
+                .buttonStyle(.plain)
             }
 
             HStack(spacing: 8) {
