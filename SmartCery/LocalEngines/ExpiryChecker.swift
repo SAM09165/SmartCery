@@ -5,14 +5,7 @@
 //  Created by Saalim Ajmerwala on 19/07/26.
 //
 
-import SwiftUI
+import Foundation
 
-struct ExpiryChecker: View {
-    var body: some View {
-        Text(/*@START_MENU_TOKEN@*/"Hello, World!"/*@END_MENU_TOKEN@*/)
-    }
-}
-
-#Preview {
-    ExpiryChecker()
-}
+/// Forwarding alias to Expirychecker date engine for architectural consistency in LocalEngines
+typealias ExpiryChecker = Expirychecker

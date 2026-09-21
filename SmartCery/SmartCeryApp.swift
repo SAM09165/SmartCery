@@ -17,6 +17,9 @@ struct SmartCeryApp: App {
                 .environmentObject(router)
                 .environmentObject(store)
                 .environmentObject(sessionManager)
+                .task {
+                    NotificationService.shared.requestPermission()
+                }
         }
     }
 }

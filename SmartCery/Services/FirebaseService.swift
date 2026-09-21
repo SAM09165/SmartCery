@@ -1,6 +1,13 @@
 import Foundation
 import FirebaseAuth
 import FirebaseFirestore
+import FirebaseCore
+
+func ensureFirebaseConfigured() {
+    if FirebaseApp.app() == nil {
+        FirebaseApp.configure()
+    }
+}
 
 struct FirebaseUserRecord: Equatable {
     let uid: String
@@ -16,24 +23,32 @@ struct FirebaseUserRecord: Equatable {
 final class FirebaseService {
     static let shared = FirebaseService()
 
-    private let database = Firestore.firestore()
+    private var database: Firestore {
+        ensureFirebaseConfigured()
+        return Firestore.firestore()
+    }
     private let usersCollection = "users"
     private let pantryCollection = "pantryItems"
     private let groceryCollection = "groceryItems"
 
-    private init() {}
+    private init() {
+        ensureFirebaseConfigured()
+    }
 
     func signIn(email: String, password: String) async throws -> FirebaseUserRecord {
+        ensureFirebaseConfigured()
         let result = try await signInUser(email: email, password: password)
         return await ensureUserRecord(for: result.user)
     }
 
     func createAccount(email: String, password: String) async throws -> FirebaseUserRecord {
+        ensureFirebaseConfigured()
         let result = try await createUser(email: email, password: password)
         return await ensureUserRecord(for: result.user)
     }
 
     func ensureUserRecord(for user: User) async -> FirebaseUserRecord {
+        ensureFirebaseConfigured()
         let reference = userReference(for: user.uid)
         let fallbackEmail = user.email ?? ""
         let fallbackDisplayName = displayName(from: fallbackEmail)
@@ -67,6 +82,7 @@ final class FirebaseService {
     }
 
     func markPantrySeedCompleted() async throws {
+        ensureFirebaseConfigured()
         guard let user = Auth.auth().currentUser else { return }
         try await setData([
             "hasCompletedPantrySeed": true,
@@ -75,6 +91,7 @@ final class FirebaseService {
     }
 
     func listenToPantryItems(_ onChange: @escaping (Result<[PantryItem], Error>) -> Void) -> ListenerRegistration? {
+        ensureFirebaseConfigured()
         guard let uid = Auth.auth().currentUser?.uid else { return nil }
         return pantryReference(for: uid)
             .order(by: "name")
@@ -90,6 +107,7 @@ final class FirebaseService {
     }
 
     func listenToGroceryItems(_ onChange: @escaping (Result<[GroceryItem], Error>) -> Void) -> ListenerRegistration? {
+        ensureFirebaseConfigured()
         guard let uid = Auth.auth().currentUser?.uid else { return nil }
         return groceryReference(for: uid)
             .order(by: "createdAt")
@@ -105,27 +123,32 @@ final class FirebaseService {
     }
 
     func savePantryItem(_ item: PantryItem) async throws {
+        ensureFirebaseConfigured()
         guard let uid = Auth.auth().currentUser?.uid else { return }
         try await setData(item.firestoreData, on: pantryReference(for: uid).document(item.id.uuidString), merge: true)
     }
 
     func deletePantryItem(_ id: UUID) async throws {
+        ensureFirebaseConfigured()
         guard let uid = Auth.auth().currentUser?.uid else { return }
         try await deleteDocument(pantryReference(for: uid).document(id.uuidString))
     }
 
     func saveGroceryItem(_ item: GroceryItem) async throws {
+        ensureFirebaseConfigured()
         guard let uid = Auth.auth().currentUser?.uid else { return }
         try await setData(item.firestoreData, on: groceryReference(for: uid).document(item.id.uuidString), merge: true)
     }
 
     func deleteGroceryItem(_ id: UUID) async throws {
+        ensureFirebaseConfigured()
         guard let uid = Auth.auth().currentUser?.uid else { return }
         try await deleteDocument(groceryReference(for: uid).document(id.uuidString))
     }
 
     private func signInUser(email: String, password: String) async throws -> AuthDataResult {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<AuthDataResult, Error>) in
+        ensureFirebaseConfigured()
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<AuthDataResult, Error>) in
             func attempt(_ remainingRetries: Int) {
                 Auth.auth().signIn(withEmail: email, password: password) { result, error in
                     if let error = error as NSError? {
@@ -150,7 +173,8 @@ final class FirebaseService {
     }
 
     private func createUser(email: String, password: String) async throws -> AuthDataResult {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<AuthDataResult, Error>) in
+        ensureFirebaseConfigured()
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<AuthDataResult, Error>) in
             func attempt(_ remainingRetries: Int) {
                 Auth.auth().createUser(withEmail: email, password: password) { result, error in
                     if let error = error as NSError? {

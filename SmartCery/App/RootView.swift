@@ -14,6 +14,8 @@ struct RootView: View {
                 OnboardingView()
             case .auth:
                 AuthView()
+            case .profileSetup(let needsPantrySeed):
+                ProfileSetupView(needsPantrySeed: needsPantrySeed)
             case .pantrySeed:
                 PantrySeedView(mode: .firstTime)
             case .dashboard:
@@ -42,6 +44,11 @@ struct RootView: View {
         }
 
         guard !isShowingSplash else { return }
+
+        if case .profileSetup = router.destination {
+            return
+        }
+
         router.route(for: authState)
     }
 

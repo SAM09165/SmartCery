@@ -4,7 +4,6 @@ import Combine
 @MainActor
 final class GroceryMarketViewModel: ObservableObject {
     let items: [MarketItem] = MarketCatalog.items
-    let categories: [String]
 
     @Published private(set) var quantities: [UUID: Int] = [:]
     @Published var selectedCategory: String = "All"
@@ -13,6 +12,10 @@ final class GroceryMarketViewModel: ObservableObject {
     @Published var promoCode: String = ""
     @Published var discountAmount: Double = 0
     @Published var activeOrder: MarketOrder?
+
+    // Dietary filtering & User profile awareness
+    @Published var isVegOnlyMode: Bool = true
+    @Published var userDietPreference: DietaryPreference = .pureVeg
 
     struct MarketOrder: Identifiable {
         let id = UUID()
@@ -23,17 +26,48 @@ final class GroceryMarketViewModel: ObservableObject {
     }
 
     init() {
+        // Default initialized in pure veg safe mode
+        self.isVegOnlyMode = true
+    }
+
+    func syncDiet(from preference: DietaryPreference?) {
+        guard let preference = preference else { return }
+        self.userDietPreference = preference
+        if preference.isStrictVeg {
+            self.isVegOnlyMode = true
+        } else {
+            self.isVegOnlyMode = false
+        }
+    }
+
+    var categories: [String] {
+        let allowed = allowedCatalogItems
         var seen: [String] = []
-        for item in MarketCatalog.items where !seen.contains(item.category) {
+        for item in allowed where !seen.contains(item.category) {
             seen.append(item.category)
         }
-        self.categories = ["All"] + seen
+        return ["All"] + seen
+    }
+
+    var allowedCatalogItems: [MarketItem] {
+        if isVegOnlyMode || userDietPreference.isStrictVeg {
+            return items.filter { $0.dietType == .pureVeg }
+        } else if userDietPreference == .eggitarian {
+            return items.filter { $0.dietType == .pureVeg || $0.dietType == .egg }
+        } else {
+            return items
+        }
     }
 
     var filteredItems: [MarketItem] {
-        let categoryFiltered = selectedCategory == "All" ? items : items.filter { $0.category == selectedCategory }
-        guard !searchText.isEmpty else { return categoryFiltered }
-        return categoryFiltered.filter { item in
+        var result = allowedCatalogItems
+
+        if selectedCategory != "All" {
+            result = result.filter { $0.category == selectedCategory }
+        }
+
+        guard !searchText.isEmpty else { return result }
+        return result.filter { item in
             item.name.localizedCaseInsensitiveContains(searchText)
                 || item.category.localizedCaseInsensitiveContains(searchText)
                 || item.tags.contains { $0.localizedCaseInsensitiveContains(searchText) }
@@ -67,7 +101,7 @@ final class GroceryMarketViewModel: ObservableObject {
 
     var cartStatusLine: String {
         cartCount == 0
-            ? "⚡ 15 min express delivery"
+            ? "⚡ 10 min express delivery"
             : "\(cartCount) item\(cartCount == 1 ? "" : "s") · \(formatPrice(total))"
     }
 
@@ -88,9 +122,13 @@ final class GroceryMarketViewModel: ObservableObject {
         }
     }
 
+    func clearCart() {
+        quantities.removeAll()
+    }
+
     func addBundle(itemNames: [String]) {
         for name in itemNames {
-            if let matched = items.first(where: { $0.name.caseInsensitiveCompare(name) == .orderedSame || $0.name.localizedCaseInsensitiveContains(name) }) {
+            if let matched = allowedCatalogItems.first(where: { $0.name.caseInsensitiveCompare(name) == .orderedSame || $0.name.localizedCaseInsensitiveContains(name) }) {
                 increment(matched)
             }
         }
@@ -122,5 +160,19 @@ final class GroceryMarketViewModel: ObservableObject {
 
     func formatPrice(_ value: Double) -> String {
         String(format: "$%.2f", value)
+    }
+
+    func icon(for category: String) -> String {
+        switch category.lowercased() {
+        case "all": return "sparkles"
+        case "produce": return "leaf.fill"
+        case "dairy": return "cup.and.saucer.fill"
+        case "bakery": return "birthday.cake.fill"
+        case "pantry": return "takeoutbag.and.cup.and.straw.fill"
+        case "condiments": return "flame.fill"
+        case "eggs": return "oval.fill"
+        case "meat": return "fish.fill"
+        default: return "bag.fill"
+        }
     }
 }

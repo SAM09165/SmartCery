@@ -21,11 +21,25 @@ struct PlannedMeal: Identifiable, Hashable, Codable {
     let usesPantry: [String]
     let missingItems: [String]
     let iconName: String
+    var imageURL: String? = nil
+}
+
+struct ChatMessage: Identifiable, Hashable {
+    var id: UUID = UUID()
+    let text: String
+    let isUser: Bool
 }
 
 @MainActor
 final class MealPlannerViewModel: ObservableObject {
     @Published var selectedDayID: UUID
+    @Published var targetCalories: Int = 2100
+    @Published var targetProtein: Int = 135
+    @Published var showingAddMealSheet: Bool = false
+    @Published var chatInput: String = ""
+    @Published var chatMessages: [ChatMessage] = [
+        ChatMessage(text: "Namaste! I'm Chef Zest, your AI Dietitian. Ask me anything about your macros, daily calorie targets, or Indian pantry recipes!", isUser: false)
+    ]
     @Published var days: [MealPlanDay] {
         didSet {
             saveDays()
@@ -36,14 +50,9 @@ final class MealPlannerViewModel: ObservableObject {
 
     init() {
         let loadedDays = Self.loadSavedDays()
-        if let firstLoaded = loadedDays.first, Calendar.current.isDateInToday(firstLoaded.date) {
-            self.days = loadedDays
-            self.selectedDayID = loadedDays[0].id
-        } else {
-            let freshDays = Self.generateDays()
-            self.days = freshDays
-            self.selectedDayID = freshDays[0].id
-        }
+        let activeDays = Self.reconcile(savedDays: loadedDays)
+        self.days = activeDays
+        self.selectedDayID = activeDays.first?.id ?? UUID()
     }
 
     var selectedDay: MealPlanDay {
@@ -58,6 +67,14 @@ final class MealPlannerViewModel: ObservableObject {
         selectedDay.meals.reduce(0) { $0 + $1.protein }
     }
 
+    var calorieProgress: Double {
+        min(Double(dailyCalories) / Double(targetCalories), 1.0)
+    }
+
+    var proteinProgress: Double {
+        min(Double(dailyProtein) / Double(targetProtein), 1.0)
+    }
+
     var missingItems: [String] {
         Array(Set(selectedDay.meals.flatMap(\.missingItems))).sorted()
     }
@@ -66,15 +83,39 @@ final class MealPlannerViewModel: ObservableObject {
         Set(selectedDay.meals.flatMap(\.usesPantry)).count
     }
 
+    func updateProfile(_ profile: UserProfile) {
+        targetCalories = profile.calculatedTargetCalories
+        targetProtein = profile.calculatedTargetProtein
+    }
+
+    func openAddMealSheet() {
+        showingAddMealSheet = true
+    }
+
+    func sendChatMessage() {
+        let trimmed = chatInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        chatMessages.append(ChatMessage(text: trimmed, isUser: true))
+        chatInput = ""
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+            guard let self else { return }
+            let response = "Based on your current macro target (\(self.targetCalories) kcal, \(self.targetProtein)g protein), incorporating Paneer, Dal, or Tofu will perfectly balance your remaining goals!"
+            self.chatMessages.append(ChatMessage(text: response, isUser: false))
+        }
+    }
+
     func addMeal(
         title: String,
         type: String,
-        time: String,
-        cookTime: String,
+        time: String = "1:00 PM",
+        cookTime: String = "20 min",
         calories: Int,
         protein: Int,
         usesPantry: [String],
-        missingItems: [String]
+        missingItems: [String],
+        imageURL: String? = nil
     ) {
         guard let selectedIndex = days.firstIndex(where: { $0.id == selectedDayID }) else {
             return
@@ -89,7 +130,8 @@ final class MealPlannerViewModel: ObservableObject {
             protein: protein,
             usesPantry: usesPantry,
             missingItems: missingItems,
-            iconName: iconName(for: type)
+            iconName: iconName(for: type),
+            imageURL: imageURL ?? RecipeImageCatalog.imageURL(for: title)
         )
 
         days[selectedIndex].meals.append(meal)
@@ -98,6 +140,22 @@ final class MealPlannerViewModel: ObservableObject {
     func deleteMeal(id: UUID) {
         guard let selectedIndex = days.firstIndex(where: { $0.id == selectedDayID }) else { return }
         days[selectedIndex].meals.removeAll { $0.id == id }
+    }
+
+    func autoBalanceDayWithAI(pantry: [PantryItem]) {
+        let deficitProtein = max(targetProtein - dailyProtein, 20)
+        let deficitCal = max(targetCalories - dailyCalories, 350)
+
+        addMeal(
+            title: "Chef Zest High-Protein Bowl",
+            type: "Snack",
+            time: "4:30 PM",
+            cookTime: "10 min",
+            calories: deficitCal,
+            protein: deficitProtein,
+            usesPantry: pantry.prefix(3).map(\.name),
+            missingItems: []
+        )
     }
 
     private func iconName(for mealType: String) -> String {
@@ -125,6 +183,78 @@ final class MealPlannerViewModel: ObservableObject {
             return []
         }
         return decoded
+    }
+
+    /// Reconciles saved meal days on date turnover so future user meals are preserved
+    static func reconcile(savedDays: [MealPlanDay]) -> [MealPlanDay] {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "EEE"
+        let dayFormatter = DateFormatter()
+        dayFormatter.dateFormat = "d"
+
+        let focuses = [
+            "High protein, low waste",
+            "Quick & fresh meals",
+            "Use expiring pantry items",
+            "Balanced comfort food",
+            "Market prep & batch cooking",
+            "Weekend light reset",
+            "Pantry favorite recipes"
+        ]
+
+        guard !savedDays.isEmpty else {
+            return generateDays()
+        }
+
+        // Keep existing days that are today or in the future
+        var validFutureDays: [MealPlanDay] = []
+        for saved in savedDays {
+            let savedDayStart = calendar.startOfDay(for: saved.date)
+            if savedDayStart >= today {
+                let isToday = calendar.isDateInToday(saved.date)
+                let weekday = isToday ? "Today" : dateFormatter.string(from: saved.date)
+                let dateLabel = dayFormatter.string(from: saved.date)
+                let refreshed = MealPlanDay(
+                    id: saved.id,
+                    date: saved.date,
+                    weekday: weekday,
+                    dateLabel: dateLabel,
+                    focus: saved.focus,
+                    meals: saved.meals
+                )
+                validFutureDays.append(refreshed)
+            }
+        }
+
+        if validFutureDays.isEmpty {
+            return generateDays()
+        }
+
+        var finalDays = validFutureDays
+        let existingDates = Set(finalDays.map { calendar.startOfDay(for: $0.date) })
+
+        for offset in 0..<7 {
+            guard let targetDate = calendar.date(byAdding: .day, value: offset, to: today) else { continue }
+            let dayStart = calendar.startOfDay(for: targetDate)
+            if !existingDates.contains(dayStart) {
+                let isToday = calendar.isDateInToday(targetDate)
+                let weekday = isToday ? "Today" : dateFormatter.string(from: targetDate)
+                let dateLabel = dayFormatter.string(from: targetDate)
+                let focus = focuses[offset % focuses.count]
+                finalDays.append(MealPlanDay(
+                    date: targetDate,
+                    weekday: weekday,
+                    dateLabel: dateLabel,
+                    focus: focus,
+                    meals: []
+                ))
+            }
+        }
+
+        finalDays.sort { $0.date < $1.date }
+        return finalDays
     }
 
     static func generateDays() -> [MealPlanDay] {
@@ -156,7 +286,8 @@ final class MealPlannerViewModel: ObservableObject {
                 protein: 24,
                 usesPantry: ["Paneer", "Spinach", "Tortilla"],
                 missingItems: ["Mint chutney"],
-                iconName: "sunrise.fill"
+                iconName: "sunrise.fill",
+                imageURL: "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?auto=format&fit=crop&w=800&q=80"
             ),
             PlannedMeal(
                 title: "Chickpea Power Bowl",
@@ -167,7 +298,8 @@ final class MealPlannerViewModel: ObservableObject {
                 protein: 28,
                 usesPantry: ["Chickpeas", "Rice", "Cucumber"],
                 missingItems: [],
-                iconName: "leaf.fill"
+                iconName: "leaf.fill",
+                imageURL: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80"
             ),
             PlannedMeal(
                 title: "Tomato Lentil Soup",
@@ -177,8 +309,9 @@ final class MealPlannerViewModel: ObservableObject {
                 calories: 390,
                 protein: 21,
                 usesPantry: ["Lentils", "Tomatoes", "Carrots"],
-                missingItems: ["Sourdough"],
-                iconName: "moon.stars.fill"
+                missingItems: ["Sourdough Bread"],
+                iconName: "moon.stars.fill",
+                imageURL: "https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&w=800&q=80"
             )
         ]
 
@@ -192,7 +325,8 @@ final class MealPlannerViewModel: ObservableObject {
                 protein: 16,
                 usesPantry: ["Oats", "Milk"],
                 missingItems: ["Blueberries"],
-                iconName: "sunrise.fill"
+                iconName: "sunrise.fill",
+                imageURL: "https://images.unsplash.com/photo-1511690656952-34342bb7c2f2?auto=format&fit=crop&w=800&q=80"
             ),
             PlannedMeal(
                 title: "Veggie Fried Rice",
@@ -201,9 +335,10 @@ final class MealPlannerViewModel: ObservableObject {
                 cookTime: "18 min",
                 calories: 520,
                 protein: 18,
-                usesPantry: ["Rice", "Eggs", "Peas"],
+                usesPantry: ["Rice", "Tofu", "Peas"],
                 missingItems: [],
-                iconName: "leaf.fill"
+                iconName: "leaf.fill",
+                imageURL: "https://images.unsplash.com/photo-1512058564366-18510be2db19?auto=format&fit=crop&w=800&q=80"
             )
         ]
 

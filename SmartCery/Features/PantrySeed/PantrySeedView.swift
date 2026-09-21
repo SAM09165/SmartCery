@@ -18,6 +18,7 @@ struct PantrySeedView: View {
     @EnvironmentObject private var sessionManager: SessionManager
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel = PantrySeedViewModel()
+    @State private var isScrolled = false
 
     let mode: PantrySeedMode
 
@@ -36,10 +37,17 @@ struct PantrySeedView: View {
             softCream.ignoresSafeArea()
 
             VStack(spacing: 0) {
-                header
-
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 22) {
+                        GeometryReader { proxy in
+                            Color.clear.preference(
+                                key: ScrollOffsetPreferenceKey.self,
+                                value: proxy.frame(in: .named("pantrySeedScroll")).minY
+                            )
+                        }
+                        .frame(height: 0)
+
+                        headerCard
                         chefBubble
                         pantryGrid
                     }
@@ -47,22 +55,51 @@ struct PantrySeedView: View {
                     .padding(.top, 18)
                     .padding(.bottom, 18)
                 }
+                .coordinateSpace(name: "pantrySeedScroll")
+                .onPreferenceChange(ScrollOffsetPreferenceKey.self) { minY in
+                    let scrolled = minY < -15
+                    if scrolled != isScrolled {
+                        withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+                            isScrolled = scrolled
+                        }
+                    }
+                }
+                .safeAreaInset(edge: .top, spacing: 0) {
+                    AppTopBar(
+                        title: mode == .firstTime ? "Select Pantry Items" : "Add Pantry Items",
+                        subtitle: "Pick items you already have in stock",
+                        showBack: mode == .addItems,
+                        onBack: { dismiss() },
+                        isScrolled: isScrolled
+                    )
+                }
 
                 bottomBar
             }
         }
+        .toolbar(.hidden, for: .navigationBar)
+        .onAppear {
+            if let profile = store.profile {
+                viewModel.syncDiet(profile.dietPreference)
+            }
+        }
+        .onChange(of: store.profile) { _, newProfile in
+            if let newProfile = newProfile {
+                viewModel.syncDiet(newProfile.dietPreference)
+            }
+        }
     }
 
-    private var header: some View {
+    private var headerCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(mode == .firstTime ? "Pantry setup" : "Add to pantry")
+                    Text(mode == .firstTime ? "Pantry Setup" : "Add to Pantry")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(zestOrange)
 
                     Text(mode == .firstTime ? "What is already in your kitchen?" : "What did you just add?")
-                        .font(.system(size: 30, weight: .semibold))
+                        .font(.system(size: 24, weight: .bold))
                         .foregroundStyle(basilGreen)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -83,16 +120,15 @@ struct PantrySeedView: View {
                 .accessibilityLabel("Clear selected pantry items")
             }
 
-            Text(mode == .firstTime ? viewModel.subtitle : "")
-                .font(.system(size: 15, weight: .regular))
-                .foregroundStyle(basilGreen.opacity(0.72))
-                .lineSpacing(3)
-                .opacity(mode == .firstTime ? 1 : 0)
+            if mode == .firstTime, !viewModel.subtitle.isEmpty {
+                Text(viewModel.subtitle)
+                    .font(.system(size: 14, weight: .regular))
+                    .foregroundStyle(basilGreen.opacity(0.72))
+                    .lineSpacing(2)
+            }
         }
-        .padding(.horizontal, 24)
-        .padding(.top, 24)
-        .padding(.bottom, 16)
-        .background(softCream)
+        .padding(16)
+        .background(elevatedSurface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 
     private var chefBubble: some View {

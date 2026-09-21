@@ -1,40 +1,82 @@
+//
+//  MealPlannerview.swift
+//  SmartCery
+//
+//  Created by Saalim Ajmerwala on 19/07/26.
+//
+
 import SwiftUI
 
 struct MealPlannerview: View {
     @EnvironmentObject private var tabRouter: TabRouter
     @EnvironmentObject private var groceryMarketViewModel: GroceryMarketViewModel
+    @EnvironmentObject private var store: AppStore
     @StateObject private var viewModel = MealPlannerViewModel()
+
     @State private var showingAddMeal = false
+    @State private var showingChefZest = false
+    @State private var isScrolled = false
+
+    private let basilGreen = AppTheme.basilGreen
+    private let zestOrange = AppTheme.zestOrange
+    private let cream = AppTheme.cream
+    private let softCream = AppTheme.softCream
+    private let elevatedSurface = AppTheme.elevatedSurface
 
     var body: some View {
         ZStack {
-            AppTheme.softCream.ignoresSafeArea()
+            softCream.ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 20) {
-                    planHero
-                    weekSelector
-                    summaryRow
-                    mealsSection
+                VStack(spacing: 18) {
+                    // Geometry Reader for Scroll Offset Tracking
+                    GeometryReader { proxy in
+                        Color.clear.preference(
+                            key: ScrollOffsetPreferenceKey.self,
+                            value: proxy.frame(in: .named("mealPlannerScroll")).minY
+                        )
+                    }
+                    .frame(height: 0)
+
+                    // 1. MACRO RINGS & NUTRITION DASHBOARD HERO
+                    macroRingsHeroCard
+
+                    // 2. DAY SELECTOR CAROUSEL
+                    weekSelectorCarousel
+
+                    // 3. CHEF ZEST AI RECIPE & DIET ASSISTANT STRIP
+                    chefZestAiStrip
+
+                    // 4. PLANNED MEALS SECTION
+                    plannedMealsSection
+
+                    // 5. GROCERY GAPS & SMART SHOPPING DRAWER
                     groceryGapSection
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 16)
-                .padding(.bottom, 28)
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .padding(.bottom, 32)
+            }
+            .coordinateSpace(name: "mealPlannerScroll")
+            .onPreferenceChange(ScrollOffsetPreferenceKey.self) { minY in
+                let scrolled = minY < -15
+                if scrolled != isScrolled {
+                    withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+                        isScrolled = scrolled
+                    }
+                }
             }
             .safeAreaInset(edge: .top, spacing: 0) {
                 AppTopBar(
-                    title: "Meal Planner",
-                    subtitle: viewModel.selectedDay.focus,
+                    title: "AI Meal Planner",
+                    subtitle: "\(viewModel.selectedDay.weekday) • \(viewModel.selectedDay.focus)",
                     trailingIcon: "plus",
-                    onTrailingTap: { showingAddMeal = true }
-                )
-                .padding(.horizontal, 20)
-                .padding(.vertical, 14)
-                .background(
-                    Rectangle()
-                        .fill(.ultraThinMaterial)
-                        .ignoresSafeArea(edges: .top)
+                    badgeCount: viewModel.selectedDay.meals.count,
+                    onTrailingTap: {
+                        HapticManager.impact(.medium)
+                        showingAddMeal = true
+                    },
+                    isScrolled: isScrolled
                 )
             }
         }
@@ -53,35 +95,159 @@ struct MealPlannerview: View {
                 )
             }
         }
+        .sheet(isPresented: $showingChefZest) {
+            ChefZestView()
+                .environmentObject(store)
+                .environmentObject(tabRouter)
+        }
     }
 
-    private var planHero: some View {
-        HStack(alignment: .top, spacing: 14) {
-            Image(systemName: "sparkles")
-                .font(.system(size: 24, weight: .bold))
-                .foregroundStyle(AppTheme.zestOrange)
-                .frame(width: 42, height: 42)
-                .background(AppTheme.cream, in: Circle())
+    // MARK: - 1. MACRO RINGS HERO CARD
+    private var macroRingsHeroCard: some View {
+        HStack(spacing: 20) {
+            // Concentric Progress Rings (Calories & Protein)
+            ZStack {
+                // Background Track 1 (Calories)
+                Circle()
+                    .stroke(zestOrange.opacity(0.18), lineWidth: 9)
+                    .frame(width: 88, height: 88)
 
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Chef Zest picked meals around your pantry.")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(AppTheme.basilGreen)
-                    .fixedSize(horizontal: false, vertical: true)
+                // Calories Progress Ring
+                Circle()
+                    .trim(from: 0, to: viewModel.calorieProgress)
+                    .stroke(
+                        LinearGradient(colors: [zestOrange, Color.yellow], startPoint: .topLeading, endPoint: .bottomTrailing),
+                        style: StrokeStyle(lineWidth: 9, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(-90))
+                    .frame(width: 88, height: 88)
+                    .animation(.spring(response: 0.6, dampingFraction: 0.8), value: viewModel.calorieProgress)
 
-                Text("Tap a day to see prep time, pantry matches, nutrition, and what still needs to be bought.")
-                    .font(.system(size: 14, weight: .regular))
-                    .foregroundStyle(AppTheme.basilGreen.opacity(0.66))
-                    .lineSpacing(2)
+                // Background Track 2 (Protein)
+                Circle()
+                    .stroke(basilGreen.opacity(0.18), lineWidth: 7)
+                    .frame(width: 66, height: 66)
+
+                // Protein Progress Ring
+                Circle()
+                    .trim(from: 0, to: viewModel.proteinProgress)
+                    .stroke(
+                        LinearGradient(colors: [basilGreen, Color.green], startPoint: .topLeading, endPoint: .bottomTrailing),
+                        style: StrokeStyle(lineWidth: 7, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(-90))
+                    .frame(width: 66, height: 66)
+                    .animation(.spring(response: 0.6, dampingFraction: 0.8), value: viewModel.proteinProgress)
+
+                // Center Flame Icon
+                Image(systemName: "flame.fill")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(zestOrange)
             }
 
-            Spacer(minLength: 0)
+            // Macro Metrics Breakdown
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("DAILY MACRO GOALS")
+                        .font(.system(size: 10, weight: .black, design: .rounded))
+                        .foregroundStyle(basilGreen.opacity(0.7))
+                        .tracking(1.0)
+
+                    Spacer()
+
+                    Text("\(Int(viewModel.calorieProgress * 100))% Goal")
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .foregroundStyle(zestOrange)
+                }
+
+                HStack(spacing: 12) {
+                    macroMetricColumn(
+                        label: "CALORIES",
+                        current: "\(viewModel.dailyCalories)",
+                        target: "\(viewModel.targetCalories) kcal",
+                        color: zestOrange,
+                        icon: "flame.fill"
+                    )
+
+                    macroMetricColumn(
+                        label: "PROTEIN",
+                        current: "\(viewModel.dailyProtein)g",
+                        target: "\(viewModel.targetProtein)g",
+                        color: basilGreen,
+                        icon: "bolt.heart.fill"
+                    )
+                }
+
+                // Sub-Macro Chips
+                HStack(spacing: 8) {
+                    macroChip(label: "Pantry: \(viewModel.pantryItemCount) Items", color: .green)
+                    macroChip(label: "Missing: \(viewModel.missingItems.count) Items", color: zestOrange)
+                }
+            }
         }
         .padding(16)
-        .background(AppTheme.elevatedSurface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .background(
+            ZStack {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(elevatedSurface)
+
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [basilGreen.opacity(0.05), zestOrange.opacity(0.05)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            }
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(Color.white.opacity(0.8), lineWidth: 1.2)
+        )
+        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 3)
     }
 
-    private var weekSelector: some View {
+    private func macroMetricColumn(label: String, current: String, target: String, color: Color, icon: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(color)
+
+                Text(label)
+                    .font(.system(size: 9, weight: .black, design: .rounded))
+                    .foregroundStyle(basilGreen.opacity(0.6))
+            }
+
+            Text(current)
+                .font(.system(size: 18, weight: .black, design: .rounded))
+                .foregroundStyle(basilGreen)
+
+            Text("of \(target)")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(basilGreen.opacity(0.6))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func macroChip(label: String, color: Color) -> some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(color)
+                .frame(width: 5, height: 5)
+
+            Text(label)
+                .font(.system(size: 10, weight: .bold, design: .rounded))
+                .foregroundStyle(basilGreen)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(color.opacity(0.12), in: Capsule())
+    }
+
+    // MARK: - 2. WEEK SELECTOR CAROUSEL
+    private var weekSelectorCarousel: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 10) {
                 ForEach(viewModel.days) { day in
@@ -89,25 +255,39 @@ struct MealPlannerview: View {
                     let isToday = day.weekday == "Today"
 
                     Button {
-                        viewModel.selectedDayID = day.id
+                        HapticManager.impact(.light)
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.78)) {
+                            viewModel.selectedDayID = day.id
+                        }
                     } label: {
-                        VStack(spacing: 8) {
-                            Text(day.weekday)
-                                .font(.system(size: 12, weight: .semibold))
+                        VStack(spacing: 4) {
+                            Text(day.weekday.uppercased())
+                                .font(.system(size: 10, weight: .bold, design: .rounded))
+                                .foregroundStyle(isSelected ? cream : basilGreen.opacity(0.7))
 
                             Text(day.dateLabel)
-                                .font(.system(size: 18, weight: .bold))
+                                .font(.system(size: 17, weight: .black, design: .rounded))
+                                .foregroundStyle(isSelected ? cream : basilGreen)
+
+                            if isToday {
+                                Circle()
+                                    .fill(isSelected ? cream : zestOrange)
+                                    .frame(width: 5, height: 5)
+                            }
                         }
-                        .foregroundStyle(isSelected ? AppTheme.cream : AppTheme.basilGreen)
-                        .frame(width: 58, height: 72)
+                        .frame(width: 62, height: 72)
                         .background(
-                            isSelected ? AppTheme.basilGreen : AppTheme.elevatedSurface,
+                            isSelected ? basilGreen : elevatedSurface,
                             in: RoundedRectangle(cornerRadius: 18, style: .continuous)
                         )
-                        .overlay {
+                        .overlay(
                             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .stroke(isToday ? AppTheme.zestOrange : AppTheme.basilGreen.opacity(isSelected ? 0 : 0.12), lineWidth: isToday ? 2 : 1)
-                        }
+                                .stroke(
+                                    isToday ? zestOrange : Color.white.opacity(isSelected ? 0 : 0.8),
+                                    lineWidth: isToday ? 2 : 1
+                                )
+                        )
+                        .shadow(color: isSelected ? basilGreen.opacity(0.3) : Color.black.opacity(0.03), radius: 6, x: 0, y: 3)
                     }
                     .buttonStyle(.plain)
                 }
@@ -116,58 +296,84 @@ struct MealPlannerview: View {
         }
     }
 
-    private var summaryRow: some View {
-        HStack(spacing: 10) {
-            summaryTile(
-                iconName: "flame.fill",
-                value: "\(viewModel.dailyCalories)",
-                label: "Calories"
-            )
-            summaryTile(
-                iconName: "bolt.heart.fill",
-                value: "\(viewModel.dailyProtein)g",
-                label: "Protein"
-            )
-            summaryTile(
-                iconName: "cabinet.fill",
-                value: "\(viewModel.pantryItemCount)",
-                label: "Pantry uses"
+    // MARK: - 3. CHEF ZEST AI STRIP
+    private var chefZestAiStrip: some View {
+        Button {
+            HapticManager.impact(.medium)
+            showingChefZest = true
+        } label: {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(cream)
+                        .frame(width: 38, height: 38)
+
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundStyle(zestOrange)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Chef Zest AI Meal Optimizer")
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundStyle(basilGreen)
+
+                    Text("Pantry-matched meals for \(viewModel.selectedDay.weekday) (\(viewModel.selectedDay.focus))")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(basilGreen.opacity(0.75))
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 0)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(zestOrange)
+            }
+            .padding(12)
+            .background(elevatedSurface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(Color.white.opacity(0.8), lineWidth: 1)
             )
         }
+        .buttonStyle(.plain)
     }
 
-    private func summaryTile(iconName: String, value: String, label: String) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Image(systemName: iconName)
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(AppTheme.zestOrange)
+    // MARK: - 4. PLANNED MEALS SECTION
+    private var plannedMealsSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("Planned Meals")
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .foregroundStyle(basilGreen)
 
-            Text(value)
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(AppTheme.basilGreen)
-                .lineLimit(1)
+                Spacer()
 
-            Text(label)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(AppTheme.basilGreen.opacity(0.58))
-                .lineLimit(1)
-                .minimumScaleFactor(0.82)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .background(AppTheme.cream, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-    }
-
-    private var mealsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionHeader("Planned meals")
+                Button {
+                    HapticManager.impact(.medium)
+                    showingAddMeal = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 11, weight: .bold))
+                        Text("Add Meal")
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                    }
+                    .foregroundStyle(cream)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(basilGreen, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
 
             if viewModel.selectedDay.meals.isEmpty {
                 emptyPlanCard
             } else {
                 VStack(spacing: 12) {
                     ForEach(viewModel.selectedDay.meals) { meal in
-                        mealCard(meal)
+                        liquidMealCard(meal)
                     }
                 }
             }
@@ -175,176 +381,234 @@ struct MealPlannerview: View {
     }
 
     private var emptyPlanCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Image(systemName: "calendar.badge.plus")
-                .font(.system(size: 26, weight: .semibold))
-                .foregroundStyle(AppTheme.zestOrange)
+        VStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(cream)
+                    .frame(width: 60, height: 60)
 
-            Text("No meals planned yet")
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(AppTheme.basilGreen)
+                Image(systemName: "calendar.badge.plus")
+                    .font(.system(size: 26, weight: .semibold))
+                    .foregroundStyle(zestOrange)
+            }
 
-            Text("Use the add button to build this day from pantry items and market picks.")
-                .font(.system(size: 14, weight: .regular))
-                .foregroundStyle(AppTheme.basilGreen.opacity(0.64))
-                .fixedSize(horizontal: false, vertical: true)
+            VStack(spacing: 4) {
+                Text("No Meals Planned For This Day")
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .foregroundStyle(basilGreen)
+
+                Text("Tap '+ Add Meal' to build your breakfast, lunch, or dinner from pantry ingredients!")
+                    .font(.system(size: 12, weight: .regular))
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(basilGreen.opacity(0.68))
+                    .padding(.horizontal, 16)
+            }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(AppTheme.elevatedSurface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .padding(.vertical, 20)
+        .frame(maxWidth: .infinity)
+        .background(elevatedSurface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 
-    private func mealCard(_ meal: PlannedMeal) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
+    private func liquidMealCard(_ meal: PlannedMeal) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Header Row
             HStack(alignment: .top, spacing: 12) {
-                Image(systemName: meal.iconName)
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(AppTheme.zestOrange)
-                    .frame(width: 42, height: 42)
-                    .background(AppTheme.cream, in: Circle())
+                RecipeImageView(
+                    title: meal.title,
+                    imageURL: meal.imageURL,
+                    iconName: meal.iconName,
+                    contentMode: .fill,
+                    cornerRadius: 14
+                )
+                .frame(width: 54, height: 54)
+                .clipped()
+                .shadow(color: Color.black.opacity(0.06), radius: 4, x: 0, y: 2)
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(meal.type)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(AppTheme.zestOrange)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(meal.type.uppercased())
+                            .font(.system(size: 10, weight: .black, design: .rounded))
+                            .foregroundStyle(zestOrange)
+
+                        Text("•")
+                            .font(.system(size: 10))
+                            .foregroundStyle(basilGreen.opacity(0.3))
+
+                        Text("\(meal.time) • \(meal.cookTime)")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(basilGreen.opacity(0.65))
+                    }
 
                     Text(meal.title)
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(AppTheme.basilGreen)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .foregroundStyle(basilGreen)
 
-                    Text("\(meal.time) • \(meal.cookTime)")
-                        .font(.system(size: 13, weight: .regular))
-                        .foregroundStyle(AppTheme.basilGreen.opacity(0.62))
+                    HStack(spacing: 8) {
+                        metricChip("\(meal.calories) kcal", icon: "flame.fill", color: zestOrange)
+                        metricChip("\(meal.protein)g Protein", icon: "bolt.heart.fill", color: basilGreen)
+                    }
+                    .padding(.top, 2)
                 }
 
                 Spacer(minLength: 0)
 
                 Button {
+                    HapticManager.impact(.medium)
                     withAnimation {
                         viewModel.deleteMeal(id: meal.id)
                     }
                 } label: {
                     Image(systemName: "trash")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(AppTheme.basilGreen.opacity(0.45))
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(Color.red.opacity(0.7))
+                        .padding(8)
+                        .background(Color.red.opacity(0.08), in: Circle())
                 }
                 .buttonStyle(.plain)
             }
 
-            HStack(spacing: 8) {
-                metricPill("\(meal.calories) cal", iconName: "flame")
-                metricPill("\(meal.protein)g protein", iconName: "bolt.heart")
+            // Ingredient Line Badges
+            if !meal.usesPantry.isEmpty {
+                ingredientBadgeLine(title: "Uses Pantry", items: meal.usesPantry, color: .green, icon: "checkmark.circle.fill")
             }
-
-            ingredientLine(title: "Uses", items: meal.usesPantry, color: AppTheme.basilGreen)
 
             if !meal.missingItems.isEmpty {
-                ingredientLine(title: "Needs", items: meal.missingItems, color: AppTheme.zestOrange)
+                ingredientBadgeLine(title: "Needs Market", items: meal.missingItems, color: zestOrange, icon: "cart.badge.plus")
             }
         }
-        .padding(16)
-        .background(AppTheme.elevatedSurface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .padding(14)
+        .background(
+            ZStack {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(elevatedSurface)
+
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(Color.white.opacity(0.4))
+            }
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color.white.opacity(0.9), lineWidth: 1.2)
+        )
+        .shadow(color: Color.black.opacity(0.03), radius: 6, x: 0, y: 3)
     }
 
-    private func metricPill(_ text: String, iconName: String) -> some View {
-        Label(text, systemImage: iconName)
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(AppTheme.basilGreen)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(AppTheme.cream, in: Capsule())
-    }
-
-    private func ingredientLine(title: String, items: [String], color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 7) {
-            Text(title)
-                .font(.system(size: 12, weight: .semibold))
+    private func metricChip(_ text: String, icon: String, color: Color) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 9, weight: .bold))
                 .foregroundStyle(color)
 
-            FlowLayout(spacing: 6) {
-                ForEach(items, id: \.self) { item in
-                    Text(item)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(color)
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 5)
-                        .background(color.opacity(0.10), in: Capsule())
+            Text(text)
+                .font(.system(size: 10, weight: .bold, design: .rounded))
+                .foregroundStyle(basilGreen)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
+        .background(color.opacity(0.12), in: Capsule())
+    }
+
+    private func ingredientBadgeLine(title: String, items: [String], color: Color, icon: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(color)
+
+                Text(title)
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundStyle(basilGreen)
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(items, id: \.self) { item in
+                        Text(item)
+                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                            .foregroundStyle(color)
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 4)
+                            .background(color.opacity(0.12), in: Capsule())
+                    }
                 }
             }
         }
     }
 
+    // MARK: - 5. GROCERY GAPS SECTION
     private var groceryGapSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionHeader("Grocery gaps")
+            HStack {
+                Text("Grocery Gaps")
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .foregroundStyle(basilGreen)
+
+                Spacer()
+
+                if !viewModel.missingItems.isEmpty {
+                    Text("\(viewModel.missingItems.count) to buy")
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .foregroundStyle(cream)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(zestOrange, in: Capsule())
+                }
+            }
 
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 12) {
-                Image(systemName: viewModel.missingItems.isEmpty ? "checkmark.circle.fill" : "cart.badge.plus")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(AppTheme.zestOrange)
-                    .frame(width: 40, height: 40)
-                    .background(AppTheme.cream, in: Circle())
+                    ZStack {
+                        Circle()
+                            .fill(cream)
+                            .frame(width: 40, height: 40)
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(viewModel.missingItems.isEmpty ? "You have everything for this day" : "\(viewModel.missingItems.count) item\(viewModel.missingItems.count == 1 ? "" : "s") to buy")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(AppTheme.basilGreen)
+                        Image(systemName: viewModel.missingItems.isEmpty ? "checkmark.circle.fill" : "cart.badge.plus")
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundStyle(viewModel.missingItems.isEmpty ? Color.green : zestOrange)
+                    }
 
-                    Text(viewModel.missingItems.isEmpty ? "Nice pantry match." : viewModel.missingItems.joined(separator: ", "))
-                        .font(.system(size: 13, weight: .regular))
-                        .foregroundStyle(AppTheme.basilGreen.opacity(0.62))
-                        .fixedSize(horizontal: false, vertical: true)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(viewModel.missingItems.isEmpty ? "All Ingredients Stocked!" : "Missing Ingredients for \(viewModel.selectedDay.weekday)")
+                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                            .foregroundStyle(basilGreen)
+
+                        Text(viewModel.missingItems.isEmpty ? "Your kitchen has everything required for today's plan." : viewModel.missingItems.joined(separator: ", "))
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(basilGreen.opacity(0.7))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Spacer(minLength: 0)
                 }
-
-                Spacer(minLength: 0)
-            }
 
                 if !viewModel.missingItems.isEmpty {
                     Button {
+                        HapticManager.impact(.medium)
                         groceryMarketViewModel.focusMarket(on: viewModel.missingItems)
                         tabRouter.selectedTab = .market
                     } label: {
-                        Label("Shop missing items", systemImage: "cart.badge.plus")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(AppTheme.cream)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 11)
-                            .background(AppTheme.basilGreen, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        HStack(spacing: 8) {
+                            Image(systemName: "bolt.fill")
+                                .font(.system(size: 14, weight: .bold))
+                            Text("Shop Missing Items in 10 Mins")
+                                .font(.system(size: 13, weight: .bold, design: .rounded))
+                        }
+                        .foregroundStyle(cream)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(basilGreen, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .shadow(color: basilGreen.opacity(0.3), radius: 6, x: 0, y: 3)
                     }
                     .buttonStyle(.plain)
                 }
             }
             .padding(14)
-            .background(AppTheme.elevatedSurface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        }
-    }
-
-    private func sectionHeader(_ title: String) -> some View {
-        Text(title)
-            .font(.system(size: 16, weight: .semibold))
-            .foregroundStyle(AppTheme.basilGreen)
-    }
-}
-
-private struct FlowLayout<Content: View>: View {
-    let spacing: CGFloat
-    @ViewBuilder let content: Content
-
-    var body: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: spacing) {
-                content
-            }
-
-            VStack(alignment: .leading, spacing: spacing) {
-                content
-            }
+            .background(elevatedSurface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
     }
 }
 
+// MARK: - ADD MEAL DRAFT STRUCTS
 private struct AddMealDraft {
     var title = ""
     var type = "Breakfast"
@@ -408,7 +672,7 @@ private struct AddMealSheet: View {
                     VStack(alignment: .leading, spacing: 18) {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Add to \(dayLabel)")
-                                .font(.system(size: 24, weight: .semibold))
+                                .font(.system(size: 24, weight: .bold, design: .rounded))
                                 .foregroundStyle(AppTheme.basilGreen)
 
                             Text("Build one meal with enough detail for pantry matching and grocery gaps.")
@@ -476,11 +740,11 @@ private struct AddMealSheet: View {
     private func plannerTextField(_ title: String, text: Binding<String>, prompt: String? = nil) -> some View {
         VStack(alignment: .leading, spacing: 7) {
             Text(title)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
                 .foregroundStyle(AppTheme.basilGreen.opacity(0.72))
 
             TextField(prompt ?? title, text: text)
-                .font(.system(size: 15, weight: .medium))
+                .font(.system(size: 15, weight: .medium, design: .rounded))
                 .foregroundStyle(AppTheme.basilGreen)
                 .textFieldStyle(.plain)
                 .padding(.horizontal, 12)
@@ -494,4 +758,5 @@ private struct AddMealSheet: View {
     MealPlannerview()
         .environmentObject(TabRouter())
         .environmentObject(GroceryMarketViewModel())
+        .environmentObject(AppStore())
 }

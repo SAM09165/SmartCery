@@ -5,6 +5,7 @@ enum AppDestination {
     case loading
     case onboarding
     case auth
+    case profileSetup(needsPantrySeed: Bool)
     case pantrySeed
     case dashboard(offline: Bool)
 }
@@ -37,6 +38,11 @@ final class AppRouter: ObservableObject {
             return
         }
 
+        // Preserve ongoing profile setup when account creation updates authState
+        if case .profileSetup = destination {
+            return
+        }
+
         switch authState {
         case .unknown:
             destination = .loading
@@ -50,6 +56,14 @@ final class AppRouter: ObservableObject {
     func completeOnboarding() {
         UserDefaults.standard.set(true, forKey: onboardingKey)
         destination = .auth
+    }
+
+    func openProfileSetup(needsPantrySeed: Bool) {
+        destination = .profileSetup(needsPantrySeed: needsPantrySeed)
+    }
+
+    func completeProfileSetup(needsPantrySeed: Bool) {
+        destination = needsPantrySeed ? .pantrySeed : .dashboard(offline: false)
     }
 
     func completeAuth(needsPantrySeed: Bool) {

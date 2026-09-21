@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import FirebaseAuth
+import FirebaseCore
 
 @MainActor
 final class SessionManager: ObservableObject {
@@ -20,6 +21,8 @@ final class SessionManager: ObservableObject {
     func start() {
         guard !hasStarted else { return }
         hasStarted = true
+
+        ensureFirebaseConfigured()
 
         handle = Auth.auth().addStateDidChangeListener { [weak self] _, user in
             guard let self else { return }
@@ -74,6 +77,7 @@ final class SessionManager: ObservableObject {
     }
 
     func signOut() {
+        ensureFirebaseConfigured()
         do {
             try Auth.auth().signOut()
             currentUserID = nil
@@ -85,6 +89,7 @@ final class SessionManager: ObservableObject {
     }
 
     deinit {
+        ensureFirebaseConfigured()
         if let handle { Auth.auth().removeStateDidChangeListener(handle) }
     }
 }

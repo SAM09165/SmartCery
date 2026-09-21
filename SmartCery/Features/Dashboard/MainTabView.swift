@@ -23,7 +23,6 @@ struct MainTabView: View {
 
             NavigationStack {
                 GroceryMarketView()
-                    .environmentObject(groceryMarketVM)
             }
             .tabItem {
                 Label("Market", systemImage: "cart")
@@ -41,7 +40,6 @@ struct MainTabView: View {
 
             NavigationStack {
                 MealPlannerview()
-                    .environmentObject(groceryMarketVM)
             }
             .tabItem {
                 Label("Planner", systemImage: "calendar")
@@ -56,6 +54,7 @@ struct MainTabView: View {
             }
             .tag(MainTab.settings)
         }
+        .environmentObject(groceryMarketVM)
         .environmentObject(tabRouter)
         .tint(AppTheme.zestOrange)
         .background(AppTheme.softCream.ignoresSafeArea())

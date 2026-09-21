@@ -62,11 +62,10 @@ enum TimeOfDay {
 @MainActor
 final class DashboardViewModel: ObservableObject {
     @Published private(set) var timeOfDay: TimeOfDay = .morning
-    @Published private(set) var activeBannerIndex: Int = 0
 
     let livePromos: [String] = [
         "⚡ FLASH PREP: 15-Min Pantry Meal Ideas Active",
-        "🚀 LIVE SYNC: Pantry inventory updated in real time",
+        "⚡ LIVE SYNC: Pantry inventory updated in real time",
         "💡 CHEF ZEST: Zero-waste recipe recommendations ready",
         "🛒 SMART MARKET: 1-Tap auto fill missing recipe ingredients"
     ]
@@ -74,11 +73,8 @@ final class DashboardViewModel: ObservableObject {
     let greeting = "Hey, kitchen main character."
     let chefLine = "Chef Zest report: your pantry is currently giving mystery box energy. Set it up before dinner becomes cereal again."
 
-    private var timerCancellable: AnyCancellable?
-
     init() {
         updateTimeOfDay()
-        startBannerTimer()
     }
 
     func updateTimeOfDay() {
@@ -93,16 +89,5 @@ final class DashboardViewModel: ObservableObject {
         default:
             timeOfDay = .night
         }
-    }
-
-    private func startBannerTimer() {
-        timerCancellable = Timer.publish(every: 3.5, on: .main, in: .common)
-            .autoconnect()
-            .sink { [weak self] _ in
-                guard let self = self else { return }
-                withAnimation(.spring(response: 0.42, dampingFraction: 0.82)) {
-                    self.activeBannerIndex = (self.activeBannerIndex + 1) % self.livePromos.count
-                }
-            }
     }
 }

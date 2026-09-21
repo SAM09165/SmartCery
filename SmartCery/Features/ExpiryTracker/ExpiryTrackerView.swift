@@ -1,150 +1,295 @@
+//
+//  ExpiryTrackerView.swift
+//  SmartCery
+//
+//  Created by Saalim Ajmerwala on 19/07/26.
+//
+
 import SwiftUI
 
 struct ExpiryTrackerView: View {
     @StateObject private var viewModel = ExpiryTrackerViewModel()
     @EnvironmentObject private var store: AppStore
+    @EnvironmentObject private var tabRouter: TabRouter
+    @State private var showingChefZest = false
+    @State private var isScrolled = false
+
+    private let basilGreen = AppTheme.basilGreen
+    private let zestOrange = AppTheme.zestOrange
+    private let cream = AppTheme.cream
+    private let softCream = AppTheme.softCream
+    private let elevatedSurface = AppTheme.elevatedSurface
 
     var body: some View {
         ZStack {
-            AppTheme.softCream.ignoresSafeArea()
+            softCream.ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(spacing: 18) {
+                    // Geometry Reader for Scroll Offset Tracking
+                    GeometryReader { proxy in
+                        Color.clear.preference(
+                            key: ScrollOffsetPreferenceKey.self,
+                            value: proxy.frame(in: .named("expiryScroll")).minY
+                        )
+                    }
+                    .frame(height: 0)
+
+                    // 1. CHEF ZEST RECIPE RESCUE HERO CARD
                     rescueCard
-                    filterControl
-                    statusSummary
+
+                    // 2. SPOILAGE & FRESHNESS RADAR HEATMAP
+                    spoilageRadarCard
+
+                    // 3. SEGMENTED EXPIRY FILTER RIBBON
+                    filterControlRibbon
+
+                    // 4. EXPIRY ITEM LIST
                     expiryList
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 16)
-                .padding(.bottom, 28)
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .padding(.bottom, 32)
+            }
+            .coordinateSpace(name: "expiryScroll")
+            .onPreferenceChange(ScrollOffsetPreferenceKey.self) { minY in
+                let scrolled = minY < -15
+                if scrolled != isScrolled {
+                    withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+                        isScrolled = scrolled
+                    }
+                }
             }
             .safeAreaInset(edge: .top, spacing: 0) {
                 AppTopBar(
-                    title: "Expiry Tracker",
+                    title: "Expiry & Freshness Radar",
                     subtitle: viewModel.subtitleLine,
-                    trailingIcon: "bell.badge.fill"
-                )
-                .padding(.horizontal, 20)
-                .padding(.vertical, 14)
-                .background(
-                    Rectangle()
-                        .fill(.ultraThinMaterial)
-                        .ignoresSafeArea(edges: .top)
+                    trailingIcon: "sparkles",
+                    onTrailingTap: {
+                        HapticManager.impact(.medium)
+                        showingChefZest = true
+                    },
+                    isScrolled: isScrolled
                 )
             }
         }
         .toolbar(.hidden, for: .navigationBar)
         .task { viewModel.replaceItems(store.pantry) }
         .onChange(of: store.pantry) { _, items in viewModel.replaceItems(items) }
+        .sheet(isPresented: $showingChefZest) {
+            ChefZestView()
+                .environmentObject(store)
+                .environmentObject(tabRouter)
+        }
     }
 
+    // MARK: - 1. RECIPE RESCUE HERO CARD
     private var rescueCard: some View {
-        HStack(alignment: .top, spacing: 14) {
-            Image(systemName: "clock.badge.exclamationmark.fill")
-                .font(.system(size: 24, weight: .bold))
-                .foregroundStyle(AppTheme.zestOrange)
-                .frame(width: 42, height: 42)
-                .background(AppTheme.cream, in: Circle())
+        Button {
+            HapticManager.impact(.medium)
+            showingChefZest = true
+        } label: {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(cream)
+                        .frame(width: 44, height: 44)
 
-            VStack(alignment: .leading, spacing: 6) {
-                Text(rescueTitle)
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(AppTheme.basilGreen)
-                    .fixedSize(horizontal: false, vertical: true)
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundStyle(zestOrange)
+                }
 
-                Text(rescueSubtitle)
-                    .font(.system(size: 14, weight: .regular))
-                    .foregroundStyle(AppTheme.basilGreen.opacity(0.66))
-                    .lineSpacing(2)
-                    .fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        Text("RECIPE RESCUE AI")
+                            .font(.system(size: 10, weight: .black, design: .rounded))
+                            .foregroundStyle(cream.opacity(0.85))
+                            .tracking(1.0)
+
+                        Text("HIGH PRIORITY")
+                            .font(.system(size: 8, weight: .black))
+                            .foregroundStyle(zestOrange)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(cream, in: Capsule())
+                    }
+
+                    Text(rescueTitle)
+                        .font(.system(size: 16, weight: .black, design: .rounded))
+                        .foregroundStyle(cream)
+                        .lineLimit(1)
+
+                    Text(rescueSubtitle)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(cream.opacity(0.88))
+                        .lineLimit(2)
+                }
+
+                Spacer(minLength: 0)
+
+                Image(systemName: "arrow.right.circle.fill")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(cream)
             }
-
-            Spacer(minLength: 0)
+            .padding(14)
+            .background(
+                LinearGradient(
+                    colors: [basilGreen, Color(red: 0.10, green: 0.40, blue: 0.22)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                in: RoundedRectangle(cornerRadius: 22, style: .continuous)
+            )
+            .shadow(color: basilGreen.opacity(0.3), radius: 8, x: 0, y: 4)
         }
-        .padding(16)
-        .background(AppTheme.elevatedSurface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .buttonStyle(.plain)
     }
 
     private var rescueTitle: String {
         guard let item = viewModel.nextRescueItem else {
-            return "Your pantry is clear right now."
+            return "Your Pantry is Fresh & Healthy"
         }
-
-        return "Rescue \(item.entry.name)"
+        return "Cook \(item.entry.name) Today!"
     }
 
     private var rescueSubtitle: String {
         guard let item = viewModel.nextRescueItem else {
-            return "Nothing is expired or close to expiring in this filter."
+            return "No items need urgent attention right now."
         }
-
-        return "\(item.entry.quantity) · \(item.statusTitle). \(item.actionHint)"
+        return "\(item.entry.quantity) • \(item.statusTitle). Tap to generate rescue recipe."
     }
 
-    private var filterControl: some View {
-        Picker("Expiry filter", selection: $viewModel.selectedFilter) {
-            ForEach(ExpiryFilter.allCases) { filter in
-                Text(filter.rawValue).tag(filter)
+    // MARK: - 2. SPOILAGE RADAR HEATMAP CARD
+    private var spoilageRadarCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                HStack(spacing: 6) {
+                    Image(systemName: "waveform.path.ecg")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(zestOrange)
+
+                    Text("FRESHNESS RADAR")
+                        .font(.system(size: 10, weight: .black, design: .rounded))
+                        .foregroundStyle(basilGreen.opacity(0.7))
+                        .tracking(1.0)
+                }
+
+                Spacer()
+
+                Text("Total: \(store.pantry.count) items")
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundStyle(basilGreen.opacity(0.6))
+            }
+
+            // Visual Multi-Color Heatmap Progress Bar
+            GeometryReader { geo in
+                let total = CGFloat(max(1, store.pantry.count))
+                let availableWidth = max(0, geo.size.width)
+                let activeSegments = (viewModel.freshCount > 0 ? 1 : 0) + (viewModel.expiringSoonCount > 0 ? 1 : 0) + (viewModel.expiredCount > 0 ? 1 : 0)
+                let totalSpacing = CGFloat(max(0, activeSegments - 1)) * 3.0
+                let barWidth = max(0, availableWidth - totalSpacing)
+
+                HStack(spacing: 3) {
+                    if viewModel.freshCount > 0 {
+                        Capsule()
+                            .fill(Color.green)
+                            .frame(width: max(4, (CGFloat(viewModel.freshCount) / total) * barWidth))
+                    }
+
+                    if viewModel.expiringSoonCount > 0 {
+                        Capsule()
+                            .fill(zestOrange)
+                            .frame(width: max(4, (CGFloat(viewModel.expiringSoonCount) / total) * barWidth))
+                    }
+
+                    if viewModel.expiredCount > 0 {
+                        Capsule()
+                            .fill(Color.red)
+                            .frame(width: max(4, (CGFloat(viewModel.expiredCount) / total) * barWidth))
+                    }
+                }
+            }
+            .frame(height: 8)
+
+            // Stat Summary Chips
+            HStack(spacing: 10) {
+                summaryTile(icon: "checkmark.seal.fill", count: viewModel.freshCount, label: "Fresh", color: .green)
+                summaryTile(icon: "exclamationmark.triangle.fill", count: viewModel.expiringSoonCount, label: "Expiring Soon", color: zestOrange)
+                summaryTile(icon: "xmark.octagon.fill", count: viewModel.expiredCount, label: "Expired", color: .red)
             }
         }
-        .pickerStyle(.segmented)
+        .padding(16)
+        .background(elevatedSurface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(Color.white.opacity(0.8), lineWidth: 1.2)
+        )
+        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 3)
     }
 
-    private var statusSummary: some View {
-        HStack(spacing: 10) {
-            summaryTile(
-                iconName: "xmark.octagon.fill",
-                value: "\(viewModel.expiredCount)",
-                label: "Expired",
-                color: .red
-            )
-            summaryTile(
-                iconName: "exclamationmark.triangle.fill",
-                value: "\(viewModel.expiringSoonCount)",
-                label: "Soon",
-                color: AppTheme.zestOrange
-            )
-            summaryTile(
-                iconName: "checkmark.seal.fill",
-                value: "\(viewModel.freshCount)",
-                label: "Fresh",
-                color: AppTheme.basilGreen
-            )
-        }
-    }
-
-    private func summaryTile(iconName: String, value: String, label: String, color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Image(systemName: iconName)
-                .font(.system(size: 17, weight: .semibold))
+    private func summaryTile(icon: String, count: Int, label: String, color: Color) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 11, weight: .bold))
                 .foregroundStyle(color)
 
-            Text(value)
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(AppTheme.basilGreen)
-                .lineLimit(1)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("\(count)")
+                    .font(.system(size: 14, weight: .black, design: .rounded))
+                    .foregroundStyle(basilGreen)
 
-            Text(label)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(AppTheme.basilGreen.opacity(0.58))
-                .lineLimit(1)
+                Text(label)
+                    .font(.system(size: 9, weight: .bold, design: .rounded))
+                    .foregroundStyle(basilGreen.opacity(0.6))
+            }
         }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .background(AppTheme.cream, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(color.opacity(0.1), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
+    // MARK: - 3. FILTER CONTROL RIBBON
+    private var filterControlRibbon: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(ExpiryFilter.allCases) { filter in
+                    let isSelected = filter == viewModel.selectedFilter
+
+                    Button {
+                        HapticManager.impact(.light)
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.78)) {
+                            viewModel.selectedFilter = filter
+                        }
+                    } label: {
+                        Text(filter.rawValue)
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
+                            .foregroundStyle(isSelected ? cream : basilGreen)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(isSelected ? basilGreen : elevatedSurface, in: Capsule())
+                            .shadow(color: isSelected ? basilGreen.opacity(0.3) : .clear, radius: 4, x: 0, y: 2)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    // MARK: - 4. EXPIRY ITEM LIST
     private var expiryList: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionHeader("\(viewModel.selectedFilter.rawValue) items")
+        VStack(alignment: .leading, spacing: 14) {
+            Text("\(viewModel.selectedFilter.rawValue) Items (\(viewModel.visibleItems.count))")
+                .font(.system(size: 16, weight: .bold, design: .rounded))
+                .foregroundStyle(basilGreen)
 
             if viewModel.visibleItems.isEmpty {
                 emptyState
             } else {
                 VStack(spacing: 12) {
                     ForEach(viewModel.visibleItems) { item in
-                        expiryRow(item)
+                        liquidExpiryCard(item)
                     }
                 }
             }
@@ -152,47 +297,71 @@ struct ExpiryTrackerView: View {
     }
 
     private var emptyState: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 26, weight: .semibold))
-                .foregroundStyle(AppTheme.basilGreen)
+        VStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(cream)
+                    .frame(width: 60, height: 60)
 
-            Text("No items here")
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(AppTheme.basilGreen)
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundStyle(Color.green)
+            }
 
-            Text("Switch filters to review the rest of your pantry.")
-                .font(.system(size: 14, weight: .regular))
-                .foregroundStyle(AppTheme.basilGreen.opacity(0.64))
+            VStack(spacing: 4) {
+                Text("No Items in This Filter")
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .foregroundStyle(basilGreen)
+
+                Text("Switch filters to inspect the rest of your kitchen inventory.")
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundStyle(basilGreen.opacity(0.68))
+            }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(AppTheme.elevatedSurface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .padding(.vertical, 24)
+        .frame(maxWidth: .infinity)
+        .background(elevatedSurface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 
-    private func expiryRow(_ item: ExpiryTrackerItem) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
+    // MARK: - LIQUID EXPIRY CARD
+    private func liquidExpiryCard(_ item: ExpiryTrackerItem) -> some View {
+        let color = statusColor(for: item.status)
+
+        return VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 12) {
-                Image(systemName: item.entry.iconName)
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(statusColor(for: item.status))
-                    .frame(width: 42, height: 42)
-                    .background(AppTheme.cream, in: Circle())
+                ZStack {
+                    Circle()
+                        .fill(cream)
+                        .frame(width: 44, height: 44)
 
-                VStack(alignment: .leading, spacing: 4) {
+                    Image(systemName: item.entry.iconName)
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundStyle(color)
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
                     Text(item.entry.name)
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(AppTheme.basilGreen)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .foregroundStyle(basilGreen)
 
-                    Text("\(item.entry.quantity) · \(item.entry.category)")
-                        .font(.system(size: 13, weight: .regular))
-                        .foregroundStyle(AppTheme.basilGreen.opacity(0.62))
+                    HStack(spacing: 8) {
+                        Text(item.entry.quantity)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(basilGreen.opacity(0.65))
+
+                        Text("•")
+                            .font(.system(size: 10))
+                            .foregroundStyle(basilGreen.opacity(0.3))
+
+                        Text(item.entry.category)
+                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                            .foregroundStyle(zestOrange)
+                    }
 
                     Text(item.actionHint)
-                        .font(.system(size: 13, weight: .regular))
-                        .foregroundStyle(AppTheme.basilGreen.opacity(0.62))
-                        .fixedSize(horizontal: false, vertical: true)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(basilGreen.opacity(0.7))
+                        .padding(.top, 2)
                 }
 
                 Spacer(minLength: 0)
@@ -200,46 +369,77 @@ struct ExpiryTrackerView: View {
                 statusBadge(item.statusTitle, status: item.status)
             }
 
+            // Action Ribbon Buttons
             HStack(spacing: 10) {
+                // Extend +3 Days
                 Button {
-                    store.removePantryItem(item.id)
+                    HapticManager.impact(.light)
+                    store.extendPantryItem(item.id, by: 3)
                 } label: {
-                    Label("Used", systemImage: "checkmark")
-                        .font(.system(size: 13, weight: .semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .foregroundStyle(AppTheme.cream)
-                        .background(AppTheme.basilGreen, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    HStack(spacing: 4) {
+                        Image(systemName: "calendar.badge.plus")
+                            .font(.system(size: 11, weight: .bold))
+
+                        Text("+3 Days")
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                    }
+                    .foregroundStyle(basilGreen)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .background(cream, in: Capsule())
                 }
                 .buttonStyle(.plain)
 
+                // Mark Used
                 Button {
-                    store.extendPantryItem(item.id)
+                    HapticManager.impact(.medium)
+                    withAnimation {
+                        store.removePantryItem(item.id)
+                    }
                 } label: {
-                    Label("+3d", systemImage: "calendar.badge.plus")
-                        .font(.system(size: 13, weight: .semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .foregroundStyle(AppTheme.basilGreen)
-                        .background(AppTheme.cream, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 11, weight: .bold))
+
+                        Text("Mark Used")
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                    }
+                    .foregroundStyle(cream)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .background(basilGreen, in: Capsule())
                 }
                 .buttonStyle(.plain)
+
+                Spacer(minLength: 0)
             }
         }
-        .padding(16)
-        .background(AppTheme.elevatedSurface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .padding(14)
+        .background(
+            ZStack {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(elevatedSurface)
+
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(Color.white.opacity(0.4))
+            }
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color.white.opacity(0.9), lineWidth: 1.2)
+        )
+        .shadow(color: Color.black.opacity(0.03), radius: 6, x: 0, y: 3)
     }
 
     private func statusBadge(_ text: String, status: ExpiryStatus) -> some View {
         let color = statusColor(for: status)
 
         return Text(text)
-            .font(.system(size: 11, weight: .semibold))
+            .font(.system(size: 11, weight: .bold, design: .rounded))
             .foregroundStyle(color)
             .padding(.horizontal, 10)
-            .padding(.vertical, 6)
+            .padding(.vertical, 5)
             .background(color.opacity(0.12), in: Capsule())
-            .lineLimit(1)
     }
 
     private func statusColor(for status: ExpiryStatus) -> Color {
@@ -247,20 +447,15 @@ struct ExpiryTrackerView: View {
         case .expired:
             return .red
         case .expiringSoon:
-            return AppTheme.zestOrange
+            return zestOrange
         case .fresh:
-            return AppTheme.basilGreen
+            return .green
         }
-    }
-
-    private func sectionHeader(_ title: String) -> some View {
-        Text(title)
-            .font(.system(size: 16, weight: .semibold))
-            .foregroundStyle(AppTheme.basilGreen)
     }
 }
 
 #Preview {
     ExpiryTrackerView()
         .environmentObject(AppStore())
+        .environmentObject(TabRouter())
 }

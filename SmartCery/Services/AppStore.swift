@@ -6,7 +6,12 @@ import FirebaseFirestore
 /// kitchen data through Firestore while retaining a user-scoped offline cache.
 @MainActor
 final class AppStore: ObservableObject {
-    @Published private(set) var pantry: [PantryItem] { didSet { save() } }
+    @Published private(set) var pantry: [PantryItem] {
+        didSet {
+            save()
+            NotificationService.shared.syncExpiryNotifications(for: pantry)
+        }
+    }
     @Published private(set) var groceryList: [GroceryItem] { didSet { save() } }
     @Published private(set) var profile: UserProfile? { didSet { save() } }
     @Published private(set) var hasCompletedOnboarding: Bool { didSet { save() } }
@@ -41,9 +46,24 @@ final class AppStore: ObservableObject {
     func prepareForSignedInUser(uid: String, profile: UserProfile) {
         if currentUserID != uid {
             stopCloudSync()
+            let offlineSnapshot = Self.loadSnapshot(forKey: offlineStorageKey)
             currentUserID = uid
             currentStorageKey = Self.storageKey(forUserID: uid)
-            applyLocalSnapshot(Self.loadSnapshot(forKey: currentStorageKey))
+            let userSnapshot = Self.loadSnapshot(forKey: currentStorageKey)
+
+            // Prevent data loss: if user snapshot is empty but offline items exist, migrate them into the user account
+            if userSnapshot.pantry.isEmpty && !offlineSnapshot.pantry.isEmpty {
+                var mergedSnapshot = userSnapshot
+                mergedSnapshot.pantry = offlineSnapshot.pantry
+                if mergedSnapshot.groceryList.isEmpty {
+                    mergedSnapshot.groceryList = offlineSnapshot.groceryList
+                }
+                applyLocalSnapshot(mergedSnapshot)
+                // Clear the offline snapshot so subsequent sessions don't duplicate
+                UserDefaults.standard.removeObject(forKey: offlineStorageKey)
+            } else {
+                applyLocalSnapshot(userSnapshot)
+            }
         }
 
         self.profile = profile
@@ -83,8 +103,6 @@ final class AppStore: ObservableObject {
                 }
             }
         }
-
-        uploadLocalCacheToCloud()
     }
 
     func stopCloudSync() {
@@ -135,6 +153,18 @@ final class AppStore: ObservableObject {
         syncGroceryDelete(id)
     }
 
+    var expiringSoonItems: [PantryItem] {
+        pantry.filter { item in
+            guard let expiryDate = item.expiryDate else { return false }
+            let days = Calendar.current.dateComponents([.day], from: Date(), to: expiryDate).day ?? 0
+            return days <= 3
+        }
+    }
+
+    var plannedMealsCount: Int {
+        7
+    }
+
     private func applyLocalSnapshot(_ snapshot: Snapshot) {
         isApplyingRemoteSnapshot = true
         pantry = snapshot.pantry
@@ -147,21 +177,53 @@ final class AppStore: ObservableObject {
     private func applyRemotePantry(_ items: [PantryItem]) {
         guard !isApplyingRemoteSnapshot else { return }
         isApplyingRemoteSnapshot = true
-        pantry = items
+
+        if items.isEmpty && !pantry.isEmpty {
+            // Remote is empty, local has items (e.g. freshly seeded offline before sign-in) -> push local to remote
+            isApplyingRemoteSnapshot = false
+            syncPantryItems(pantry)
+            return
+        }
+
+        // Two-way safe merge: preserve remote items and push any unsynced local items
+        var merged = items
+        var unsyncedLocal: [PantryItem] = []
+        for localItem in pantry where !merged.contains(where: { $0.id == localItem.id || $0.name.caseInsensitiveCompare(localItem.name) == .orderedSame }) {
+            merged.append(localItem)
+            unsyncedLocal.append(localItem)
+        }
+
+        pantry = merged
         isApplyingRemoteSnapshot = false
+
+        if !unsyncedLocal.isEmpty {
+            syncPantryItems(unsyncedLocal)
+        }
     }
 
     private func applyRemoteGroceryList(_ items: [GroceryItem]) {
         guard !isApplyingRemoteSnapshot else { return }
         isApplyingRemoteSnapshot = true
-        groceryList = items
-        isApplyingRemoteSnapshot = false
-    }
 
-    private func uploadLocalCacheToCloud() {
-        guard isCloudSyncActive else { return }
-        syncPantryItems(pantry)
-        syncGroceryItems(groceryList)
+        if items.isEmpty && !groceryList.isEmpty {
+            isApplyingRemoteSnapshot = false
+            syncGroceryItems(groceryList)
+            return
+        }
+
+        var merged = items
+        var unsyncedLocal: [GroceryItem] = []
+        for localItem in groceryList where !merged.contains(where: { $0.id == localItem.id || $0.name.caseInsensitiveCompare(localItem.name) == .orderedSame }) {
+            merged.append(localItem)
+            unsyncedLocal.append(localItem)
+        }
+
+        groceryList = merged
+        isApplyingRemoteSnapshot = false
+
+        if !unsyncedLocal.isEmpty {
+            syncGroceryItems(unsyncedLocal)
+        }
     }
 
     private func syncPantryItems(_ items: [PantryItem]) {
