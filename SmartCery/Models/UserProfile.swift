@@ -8,13 +8,33 @@
 import Foundation
 
 enum DietaryPreference: String, Codable, CaseIterable, Identifiable {
-    case pureVeg = "Strict Pure Veg 🟢"
-    case eggitarian = "Eggitarian 🟡"
-    case nonVeg = "Non-Vegetarian 🔴"
-    case vegan = "Vegan 🟢"
-    case jainVeg = "Jain Veg (No Onion/Garlic) 🟢"
+    case pureVeg = "Strict Pure Veg"
+    case eggitarian = "Eggitarian"
+    case nonVeg = "Non-Vegetarian"
+    case vegan = "Vegan"
+    case jainVeg = "Jain Veg (No Onion/Garlic)"
 
     var id: String { rawValue }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let stringValue = try container.decode(String.self)
+        if stringValue.contains("Pure Veg") || stringValue.contains("pureVeg") {
+            self = .pureVeg
+        } else if stringValue.contains("Eggitarian") || stringValue.contains("eggitarian") {
+            self = .eggitarian
+        } else if stringValue.contains("Non-Vegetarian") || stringValue.contains("nonVeg") {
+            self = .nonVeg
+        } else if stringValue.contains("Vegan") || stringValue.contains("vegan") {
+            self = .vegan
+        } else if stringValue.contains("Jain") || stringValue.contains("jainVeg") {
+            self = .jainVeg
+        } else if let match = DietaryPreference(rawValue: stringValue) {
+            self = match
+        } else {
+            self = .pureVeg
+        }
+    }
 
     var isStrictVeg: Bool {
         switch self {
@@ -47,7 +67,7 @@ enum DietaryPreference: String, Codable, CaseIterable, Identifiable {
         case .pureVeg: return "100% Vegetarian. Strictly no eggs, meat, chicken, or seafood."
         case .eggitarian: return "Vegetarian + Eggs. Strictly no meat, chicken, or seafood."
         case .nonVeg: return "Includes Chicken, Mutton, Fish, Eggs & Vegetables."
-        case .vegan: return "100% Plant-based. No dairy, no eggs, no animal products."
+        case .vegan: return "100 plant-based. No dairy, no eggs, no animal products."
         case .jainVeg: return "Pure Veg without onion, garlic, or root vegetables."
         }
     }
@@ -74,12 +94,30 @@ enum WorkoutFrequency: String, Codable, CaseIterable, Identifiable {
 }
 
 enum FitnessGoal: String, Codable, CaseIterable, Identifiable {
-    case fatLoss = "Fat Loss / Weight Loss 🔥"
-    case muscleGain = "Muscle Gain / Bulking 💪"
-    case maintenance = "Maintain Weight & Fitness ⚖️"
-    case zeroWaste = "Zero-Waste Clean Eating ♻️"
+    case fatLoss = "Fat Loss / Weight Loss"
+    case muscleGain = "Muscle Gain / Bulking"
+    case maintenance = "Maintain Weight & Fitness"
+    case zeroWaste = "Zero-Waste Clean Eating"
 
     var id: String { rawValue }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let stringValue = try container.decode(String.self)
+        if stringValue.contains("Fat Loss") {
+            self = .fatLoss
+        } else if stringValue.contains("Muscle Gain") {
+            self = .muscleGain
+        } else if stringValue.contains("Maintain") {
+            self = .maintenance
+        } else if stringValue.contains("Zero-Waste") {
+            self = .zeroWaste
+        } else if let match = FitnessGoal(rawValue: stringValue) {
+            self = match
+        } else {
+            self = .fatLoss
+        }
+    }
 
     var calorieAdjustmentFactor: Double {
         switch self {
@@ -100,6 +138,7 @@ struct UserProfile: Codable, Equatable {
     var dietPreference: DietaryPreference
     var workoutFrequency: WorkoutFrequency
     var fitnessGoal: FitnessGoal
+    var profileCompleted: Bool
 
     init(
         displayName: String = "Kitchen Hero",
@@ -110,7 +149,8 @@ struct UserProfile: Codable, Equatable {
         weightKg: Double = 70.0,
         dietPreference: DietaryPreference = .pureVeg,
         workoutFrequency: WorkoutFrequency = .moderate,
-        fitnessGoal: FitnessGoal = .fatLoss
+        fitnessGoal: FitnessGoal = .fatLoss,
+        profileCompleted: Bool = false
     ) {
         self.displayName = displayName
         self.email = email
@@ -121,6 +161,7 @@ struct UserProfile: Codable, Equatable {
         self.dietPreference = dietPreference
         self.workoutFrequency = workoutFrequency
         self.fitnessGoal = fitnessGoal
+        self.profileCompleted = profileCompleted
     }
 
     var bmr: Double {

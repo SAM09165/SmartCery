@@ -20,10 +20,10 @@ enum TimeOfDay {
 
     var title: String {
         switch self {
-        case .morning: return "Good Morning 🌅"
-        case .afternoon: return "Good Afternoon ☀️"
-        case .evening: return "Good Evening 🌆"
-        case .night: return "Night Reset 🌙"
+        case .morning: return "Good Morning"
+        case .afternoon: return "Good Afternoon"
+        case .evening: return "Good Evening"
+        case .night: return "Night Reset"
         }
     }
 
@@ -64,14 +64,14 @@ final class DashboardViewModel: ObservableObject {
     @Published private(set) var timeOfDay: TimeOfDay = .morning
 
     let livePromos: [String] = [
-        "⚡ FLASH PREP: 15-Min Pantry Meal Ideas Active",
-        "⚡ LIVE SYNC: Pantry inventory updated in real time",
-        "💡 CHEF ZEST: Zero-waste recipe recommendations ready",
-        "🛒 SMART MARKET: 1-Tap auto fill missing recipe ingredients"
+        "FLASH PREP: 15-Min Pantry Meal Ideas Active",
+        "LIVE SYNC: Pantry inventory updated in real time",
+        "CHEF ZEST: Zero-waste recipe recommendations ready",
+        "SMART MARKET: 1-Tap auto fill missing recipe ingredients"
     ]
 
-    let greeting = "Hey, kitchen main character."
-    let chefLine = "Chef Zest report: your pantry is currently giving mystery box energy. Set it up before dinner becomes cereal again."
+    let greeting = "Welcome back."
+    let chefLine = "Chef Zest report: Your pantry has fresh essentials ready for quick, balanced meals today."
 
     init() {
         updateTimeOfDay()

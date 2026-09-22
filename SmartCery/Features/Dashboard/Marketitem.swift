@@ -343,3 +343,15 @@ enum MarketCatalog {
         )
     ]
 }
+
+
+// MARK: - Compatibility & Convenience Extensions
+extension MarketItem {
+    var title: String { name }
+    var description: String { details }
+    var deliveryTime: String { deliveryEstimate }
+    var originalPrice: Double? { price * 1.15 }
+    var discountText: String? { "15% OFF" }
+    var rating: Double { 4.8 }
+    var reviewCount: Int { 128 }
+}

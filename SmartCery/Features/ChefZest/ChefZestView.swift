@@ -77,8 +77,7 @@ struct ChefZestView: View {
                 AppTopBar(
                     title: "Chef Zest AI",
                     subtitle: "Personalized AI Dietitian",
-                    showBack: true,
-                    onBack: { dismiss() },
+                    showBack: false,
                     isScrolled: isScrolled
                 )
             }
@@ -205,13 +204,17 @@ struct ChefZestView: View {
                                 viewModel.selectedDietGoal = goal
                             }
                         } label: {
-                            Text(goal.rawValue)
-                                .font(.system(size: 12, weight: .bold, design: .rounded))
-                                .foregroundStyle(isSelected ? cream : basilGreen)
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 8)
-                                .background(isSelected ? zestOrange : elevatedSurface, in: Capsule())
-                                .shadow(color: isSelected ? zestOrange.opacity(0.3) : .clear, radius: 4, x: 0, y: 2)
+                            HStack(spacing: 4) {
+                                Image(systemName: goal.iconName)
+                                    .font(.system(size: 10, weight: .bold))
+                                Text(goal.rawValue)
+                                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                            }
+                            .foregroundStyle(isSelected ? cream : basilGreen)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(isSelected ? zestOrange : elevatedSurface, in: Capsule())
+                            .shadow(color: isSelected ? zestOrange.opacity(0.3) : .clear, radius: 4, x: 0, y: 2)
                         }
                         .buttonStyle(.plain)
                     }
@@ -265,13 +268,13 @@ struct ChefZestView: View {
                     }
                 }
 
-                // Quick Prompt Chips
+                // Quick Prompt Chips (SF Symbols, 0 Emojis)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
-                        quickPromptButton("🥗 High-protein lunch")
-                        quickPromptButton("♻️ Zero-waste dinner")
-                        quickPromptButton("⚡ Under 15-min snack")
-                        quickPromptButton("🥑 Calculate macros")
+                        quickPromptButton(icon: "fork.knife", text: "High-protein lunch")
+                        quickPromptButton(icon: "arrow.triangle.2.circlepath", text: "Zero-waste dinner")
+                        quickPromptButton(icon: "clock.fill", text: "Under 15-min snack")
+                        quickPromptButton(icon: "chart.bar.fill", text: "Calculate macros")
                     }
                 }
 
@@ -308,17 +311,21 @@ struct ChefZestView: View {
         }
     }
 
-    private func quickPromptButton(_ promptText: String) -> some View {
+    private func quickPromptButton(icon: String, text: String) -> some View {
         Button {
             HapticManager.impact(.light)
-            viewModel.sendUserMessage(promptText, pantry: store.pantry, profile: store.profile)
+            viewModel.sendUserMessage(text, pantry: store.pantry, profile: store.profile)
         } label: {
-            Text(promptText)
-                .font(.system(size: 11, weight: .bold, design: .rounded))
-                .foregroundStyle(basilGreen)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(cream, in: Capsule())
+            HStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.system(size: 10, weight: .bold))
+                Text(text)
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+            }
+            .foregroundStyle(basilGreen)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(cream, in: Capsule())
         }
         .buttonStyle(.plain)
     }
@@ -449,17 +456,19 @@ struct ChefZestView: View {
 
                 if !recipe.missingItems.isEmpty {
                     Button {
-                        HapticManager.impact(.light)
-                        for item in recipe.missingItems {
-                            store.addGroceryItem(name: item)
-                        }
+                        HapticManager.impact(.medium)
+                        tabRouter.selectedTab = .market
                     } label: {
-                        Label("Add Needs", systemImage: "cart.badge.plus")
-                            .font(.system(size: 12, weight: .bold, design: .rounded))
-                            .foregroundStyle(zestOrange)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 10)
-                            .background(zestOrange.opacity(0.12), in: Capsule())
+                        HStack(spacing: 4) {
+                            Image(systemName: "cart.badge.plus")
+                                .font(.system(size: 11, weight: .bold))
+                            Text("Buy (\(recipe.missingItems.count))")
+                                .font(.system(size: 12, weight: .bold, design: .rounded))
+                        }
+                        .foregroundStyle(zestOrange)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(zestOrange.opacity(0.12), in: Capsule())
                     }
                     .buttonStyle(.plain)
                 }
@@ -471,116 +480,105 @@ struct ChefZestView: View {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .stroke(Color.white.opacity(0.8), lineWidth: 1.2)
         )
-        .shadow(color: Color.black.opacity(0.03), radius: 6, x: 0, y: 3)
+        .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 3)
     }
 
     private func macroPill(_ text: String, iconName: String, color: Color) -> some View {
-        Label(text, systemImage: iconName)
-            .font(.system(size: 11, weight: .bold, design: .rounded))
-            .foregroundStyle(color)
-            .padding(.horizontal, 9)
-            .padding(.vertical, 5)
-            .background(cream, in: Capsule())
+        HStack(spacing: 4) {
+            Image(systemName: iconName)
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(color)
+            Text(text)
+                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .foregroundStyle(basilGreen)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(cream, in: Capsule())
     }
 
     private func chipLine(title: String, items: [String], color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 4) {
             Text(title)
                 .font(.system(size: 11, weight: .bold, design: .rounded))
-                .foregroundStyle(basilGreen)
+                .foregroundStyle(basilGreen.opacity(0.7))
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    ForEach(items, id: \.self) { item in
-                        Text(item)
-                            .font(.system(size: 11, weight: .semibold, design: .rounded))
-                            .foregroundStyle(color)
-                            .padding(.horizontal, 9)
-                            .padding(.vertical, 4)
-                            .background(color.opacity(0.12), in: Capsule())
-                    }
+            HStack(spacing: 6) {
+                ForEach(items, id: \.self) { item in
+                    Text(item)
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .foregroundStyle(color)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(color.opacity(0.12), in: Capsule())
                 }
             }
         }
     }
 
-    // MARK: - 6. SMART GROCERY ADDS SECTION
+    // MARK: - 6. SMART GROCERY ADDS
     private var smartGroceryAddsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Smart Grocery Replenishments")
-                .font(.system(size: 16, weight: .bold, design: .rounded))
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Auto-Restock for \(userDiet.rawValue) Recipes")
+                .font(.system(size: 15, weight: .bold, design: .rounded))
                 .foregroundStyle(basilGreen)
 
-            if viewModel.grocerySuggestions.isEmpty {
-                compactStatusCard(
-                    iconName: "checkmark.circle.fill",
-                    title: "No recipe gaps found",
-                    message: store.pantry.isEmpty ? "Add pantry items first." : "Your grocery list covers all recipe gaps."
-                )
-            } else {
-                VStack(spacing: 10) {
-                    ForEach(viewModel.grocerySuggestions, id: \.self) { item in
-                        Button {
-                            HapticManager.impact(.light)
-                            store.addGroceryItem(name: item)
-                        } label: {
-                            HStack(spacing: 12) {
-                                Image(systemName: "plus.circle.fill")
-                                    .font(.system(size: 20, weight: .bold))
-                                    .foregroundStyle(zestOrange)
-                                    .frame(width: 34, height: 34)
-                                    .background(cream, in: Circle())
+            ForEach(viewModel.grocerySuggestions, id: \.self) { grocery in
+                HStack {
+                    Image(systemName: "bag.badge.plus")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(zestOrange)
 
-                                Text(item)
-                                    .font(.system(size: 14, weight: .bold, design: .rounded))
-                                    .foregroundStyle(basilGreen)
+                    Text(grocery)
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundStyle(basilGreen)
 
-                                Spacer(minLength: 0)
+                    Spacer()
 
-                                Text("Add")
-                                    .font(.system(size: 12, weight: .bold, design: .rounded))
-                                    .foregroundStyle(zestOrange)
-                            }
-                            .padding(12)
-                            .background(elevatedSurface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        }
-                        .buttonStyle(.plain)
+                    Button {
+                        HapticManager.impact(.light)
+                        store.addGroceryItem(name: grocery)
+                    } label: {
+                        Text("Add to List")
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                            .foregroundStyle(basilGreen)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(cream, in: Capsule())
                     }
+                    .buttonStyle(.plain)
                 }
+                .padding(12)
+                .background(elevatedSurface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
         }
     }
 
     private func compactStatusCard(iconName: String, title: String, message: String) -> some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(spacing: 12) {
             Image(systemName: iconName)
-                .font(.system(size: 20, weight: .bold))
+                .font(.system(size: 24, weight: .bold))
                 .foregroundStyle(zestOrange)
-                .frame(width: 38, height: 38)
-                .background(cream, in: Circle())
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
                     .foregroundStyle(basilGreen)
-
                 Text(message)
-                    .font(.system(size: 13, weight: .regular))
-                    .foregroundStyle(basilGreen.opacity(0.68))
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundStyle(basilGreen.opacity(0.75))
             }
+            Spacer()
         }
         .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
         .background(elevatedSurface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
     private func refresh() {
-        viewModel.refresh(pantry: store.pantry, groceryList: store.groceryList, profile: store.profile)
+        viewModel.refresh(
+            pantry: store.pantry,
+            groceryList: store.groceryList,
+            profile: store.profile
+        )
     }
-}
-
-#Preview {
-    ChefZestView()
-        .environmentObject(AppStore())
-        .environmentObject(TabRouter())
 }

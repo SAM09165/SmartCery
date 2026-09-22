@@ -10,14 +10,14 @@ final class AuthViewModel: ObservableObject {
     @Published var email = ""
     @Published var password = ""
     @Published var phoneNumber = ""
-    @Published var selectedCountryCode = "🇮🇳 +91"
+    @Published var selectedCountryCode = "IN +91"
     @Published var inputType: AuthInputType = .email
 
     @Published private(set) var mode: Mode = .signIn
     @Published private(set) var statusMessage = "Log in or sign up to save your pantry & diet goals."
     @Published private(set) var isSubmitting = false
 
-    let countryCodes = ["🇮🇳 +91", "🇸🇬 +65", "🇺🇸 +1", "🇬🇧 +44", "🇦🇪 +971"]
+    let countryCodes = ["IN +91", "SG +65", "US +1", "UK +44", "AE +971"]
 
     var title: String {
         "India’s #1 AI Diet & Zero-Waste Kitchen Assistant"

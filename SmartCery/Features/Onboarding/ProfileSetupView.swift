@@ -7,15 +7,18 @@ struct ProfileSetupView: View {
 
     let needsPantrySeed: Bool
 
+    @State private var currentStep: Int = 1
+    private let totalSteps: Int = 6
+
     @State private var displayName: String = ""
-    @State private var age: Int = 25
     @State private var gender: String = "Male"
-    @State private var heightCm: Double = 172.0
-    @State private var weightKg: Double = 68.0
+    @State private var age: Int = 26
+    @State private var heightCm: Double = 175.0
+    @State private var weightKg: Double = 70.0
     @State private var dietPreference: DietaryPreference = .pureVeg
     @State private var workoutFrequency: WorkoutFrequency = .moderate
     @State private var fitnessGoal: FitnessGoal = .fatLoss
-    @State private var isScrolled = false
+    @State private var isSaving: Bool = false
 
     private var currentProfile: UserProfile {
         UserProfile(
@@ -27,51 +30,51 @@ struct ProfileSetupView: View {
             weightKg: weightKg,
             dietPreference: dietPreference,
             workoutFrequency: workoutFrequency,
-            fitnessGoal: fitnessGoal
+            fitnessGoal: fitnessGoal,
+            profileCompleted: true
         )
     }
 
     var body: some View {
         ZStack {
-            AppTheme.softCream.ignoresSafeArea()
+            AppTheme.background.ignoresSafeArea()
 
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 20) {
-                    GeometryReader { proxy in
-                        Color.clear.preference(
-                            key: ScrollOffsetPreferenceKey.self,
-                            value: proxy.frame(in: .named("profileSetupScroll")).minY
-                        )
-                    }
-                    .frame(height: 0)
+            VStack(spacing: 0) {
+                // Top Navigation & Step Indicator
+                topStepBar
 
-                    headerBlock
-                    calculatedMacrosBanner
-                    bodyMetricsCard
-                    dietPreferenceCard
-                    workoutCard
-                    goalCard
-                    saveButton
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 16)
-                .padding(.bottom, 28)
-            }
-            .coordinateSpace(name: "profileSetupScroll")
-            .onPreferenceChange(ScrollOffsetPreferenceKey.self) { minY in
-                let scrolled = minY < -15
-                if scrolled != isScrolled {
-                    withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
-                        isScrolled = scrolled
+                // Step Content
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: AppSpacing.lg) {
+                        switch currentStep {
+                        case 1:
+                            genderStepView
+                        case 2:
+                            ageStepView
+                        case 3:
+                            heightStepView
+                        case 4:
+                            weightStepView
+                        case 5:
+                            dietStepView
+                        case 6:
+                            goalsStepView
+                        default:
+                            genderStepView
+                        }
                     }
+                    .padding(.horizontal, AppSpacing.lg)
+                    .padding(.top, AppSpacing.md)
+                    .padding(.bottom, 120)
                 }
+
+                Spacer(minLength: 0)
             }
-            .safeAreaInset(edge: .top, spacing: 0) {
-                AppTopBar(
-                    title: "Personal Health Setup",
-                    subtitle: "Strict diet & macro plan setup",
-                    isScrolled: isScrolled
-                )
+
+            // Bottom Floating Action Button
+            VStack {
+                Spacer()
+                bottomActionBar
             }
         }
         .toolbar(.hidden, for: .navigationBar)
@@ -89,305 +92,620 @@ struct ProfileSetupView: View {
         }
     }
 
-    private var headerBlock: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Tell Chef Zest About Yourself")
-                .font(.system(size: 24, weight: .bold))
-                .foregroundStyle(AppTheme.basilGreen)
-
-            Text("We customize meal plans, grocery recommendations, and strict dietary boundaries based on your personal metrics.")
-                .font(.system(size: 14, weight: .regular))
-                .foregroundStyle(AppTheme.basilGreen.opacity(0.68))
-                .lineSpacing(2)
-        }
-    }
-
-    private var calculatedMacrosBanner: some View {
-        VStack(alignment: .leading, spacing: 10) {
+    // MARK: - Top Step Navigation Bar
+    private var topStepBar: some View {
+        VStack(spacing: 12) {
             HStack {
-                Image(systemName: "bolt.heart.fill")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(AppTheme.zestOrange)
-
-                Text("Calculated Macro Targets")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(AppTheme.zestOrange)
-
-                Spacer()
-
-                Text("BMR: \(Int(currentProfile.bmr)) kcal")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(AppTheme.basilGreen.opacity(0.6))
-            }
-
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("\(currentProfile.calculatedTargetCalories) kcal")
-                        .font(.system(size: 22, weight: .black))
-                        .foregroundStyle(AppTheme.basilGreen)
-
-                    Text("Daily Calorie Target")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(AppTheme.basilGreen.opacity(0.65))
-                }
-
-                Spacer()
-
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text("\(currentProfile.calculatedTargetProtein)g")
-                        .font(.system(size: 22, weight: .black))
-                        .foregroundStyle(AppTheme.zestOrange)
-
-                    Text("Daily Protein Goal")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(AppTheme.basilGreen.opacity(0.65))
-                }
-            }
-        }
-        .padding(16)
-        .background(AppTheme.cream, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(AppTheme.zestOrange.opacity(0.3), lineWidth: 1.2)
-        }
-    }
-
-    private var bodyMetricsCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Body Metrics")
-                .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(AppTheme.basilGreen)
-
-            HStack(spacing: 12) {
-                metricStepper("Age", value: "\(age) yrs") {
-                    if age > 12 { age -= 1 }
-                } onPlus: {
-                    if age < 90 { age += 1 }
-                }
-
-                metricStepper("Height", value: "\(Int(heightCm)) cm") {
-                    if heightCm > 120 { heightCm -= 1 }
-                } onPlus: {
-                    if heightCm < 220 { heightCm += 1 }
-                }
-
-                metricStepper("Weight", value: "\(Int(weightKg)) kg") {
-                    if weightKg > 35 { weightKg -= 1 }
-                } onPlus: {
-                    if weightKg < 200 { weightKg += 1 }
-                }
-            }
-
-            HStack(spacing: 10) {
-                Text("Gender:")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(AppTheme.basilGreen)
-
-                ForEach(["Male", "Female", "Other"], id: \.self) { item in
-                    let isSelected = gender == item
+                if currentStep > 1 {
                     Button {
-                        gender = item
+                        HapticManager.impact(.light)
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                            currentStep -= 1
+                        }
                     } label: {
-                        Text(item)
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(isSelected ? AppTheme.cream : AppTheme.basilGreen)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 7)
-                            .background(isSelected ? AppTheme.basilGreen : AppTheme.cream, in: Capsule())
+                        HStack(spacing: 4) {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 14, weight: .bold))
+                            Text("Back")
+                                .font(.system(size: 14, weight: .semibold))
+                        }
+                        .foregroundStyle(AppTheme.textPrimary)
                     }
                     .buttonStyle(.plain)
+                } else {
+                    Color.clear
+                        .frame(width: 50, height: 20)
                 }
-            }
-        }
-        .padding(16)
-        .background(AppTheme.elevatedSurface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-    }
 
-    private func metricStepper(_ title: String, value: String, onMinus: @escaping () -> Void, onPlus: @escaping () -> Void) -> some View {
-        VStack(spacing: 8) {
-            Text(title)
-                .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(AppTheme.basilGreen.opacity(0.6))
+                Spacer()
 
-            Text(value)
-                .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(AppTheme.basilGreen)
+                Text("Step \(currentStep) of \(totalSteps)")
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .foregroundStyle(AppTheme.textSecondary)
 
-            HStack(spacing: 8) {
-                Button(action: onMinus) {
-                    Image(systemName: "minus")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(AppTheme.basilGreen)
-                        .frame(width: 26, height: 26)
-                        .background(AppTheme.cream, in: Circle())
+                Spacer()
+
+                Button {
+                    // Skip button to advance quickly
+                    advanceStep()
+                } label: {
+                    Text(currentStep == totalSteps ? "" : "Skip")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(AppTheme.textSecondary)
                 }
                 .buttonStyle(.plain)
-
-                Button(action: onPlus) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(AppTheme.cream)
-                        .frame(width: 26, height: 26)
-                        .background(AppTheme.zestOrange, in: Circle())
-                }
-                .buttonStyle(.plain)
+                .frame(width: 50, alignment: .trailing)
             }
+            .padding(.horizontal, AppSpacing.lg)
+            .padding(.top, 14)
+
+            // Progress Bar
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(AppTheme.borderSubtle)
+                        .frame(height: 5)
+
+                    Capsule()
+                        .fill(AppTheme.primary)
+                        .frame(width: geo.size.width * CGFloat(currentStep) / CGFloat(totalSteps), height: 5)
+                        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: currentStep)
+                }
+            }
+            .frame(height: 5)
+            .padding(.horizontal, AppSpacing.lg)
         }
-        .frame(maxWidth: .infinity)
-        .padding(10)
-        .background(AppTheme.cream, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(AppTheme.background)
     }
 
-    private var dietPreferenceCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 6) {
-                Image(systemName: "shield.fill")
-                    .foregroundStyle(AppTheme.zestOrange)
+    // MARK: - Step 1: Gender
+    private var genderStepView: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.lg) {
+            stepHeader(
+                title: "What is your gender?",
+                subtitle: "Chef Zest uses your biological sex to compute accurate basal metabolic rates and daily nutrient targets."
+            )
 
-                Text("Strict Dietary Preference (India Rules)")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(AppTheme.basilGreen)
+            VStack(spacing: AppSpacing.md) {
+                genderCard(title: "Male", icon: "figure.stand")
+                genderCard(title: "Female", icon: "figure.stand.dress")
+                genderCard(title: "Prefer not to say", icon: "person.fill")
             }
+        }
+    }
 
-            VStack(spacing: 10) {
+    private func genderCard(title: String, icon: String) -> some View {
+        let isSelected = gender.caseInsensitiveCompare(title) == .orderedSame
+        return Button {
+            HapticManager.impact(.light)
+            gender = title
+        } label: {
+            HStack(spacing: 16) {
+                ZStack {
+                    Circle()
+                        .fill(isSelected ? AppTheme.primary.opacity(0.12) : AppTheme.surface)
+                        .frame(width: 48, height: 48)
+
+                    Image(systemName: icon)
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundStyle(isSelected ? AppTheme.primary : AppTheme.textSecondary)
+                }
+
+                Text(title)
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .foregroundStyle(AppTheme.textPrimary)
+
+                Spacer()
+
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(isSelected ? AppTheme.primary : AppTheme.borderSubtle)
+            }
+            .padding(AppSpacing.md)
+            .background(AppTheme.elevatedSurface, in: RoundedRectangle(cornerRadius: AppRadius.large, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: AppRadius.large, style: .continuous)
+                    .stroke(isSelected ? AppTheme.primary : AppTheme.borderSubtle, lineWidth: isSelected ? 2 : 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Step 2: Age
+    private var ageStepView: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.lg) {
+            stepHeader(
+                title: "How old are you?",
+                subtitle: "Metabolism and micro-nutrient requirements adjust systematically across different life stages."
+            )
+
+            VStack(spacing: 24) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text("\(age)")
+                        .font(.system(size: 64, weight: .black, design: .rounded))
+                        .foregroundStyle(AppTheme.primary)
+
+                    Text("years old")
+                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                        .foregroundStyle(AppTheme.textSecondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 24)
+                .background(AppTheme.elevatedSurface, in: RoundedRectangle(cornerRadius: AppRadius.xlarge, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppRadius.xlarge, style: .continuous)
+                        .stroke(AppTheme.borderSubtle, lineWidth: 1)
+                )
+
+                // Quick Increment Buttons
+                HStack(spacing: 16) {
+                    metricAdjustButton(icon: "minus", label: "-1") {
+                        if age > 14 { age -= 1 }
+                    }
+
+                    metricAdjustButton(icon: "minus", label: "-5") {
+                        if age > 18 { age -= 5 }
+                    }
+
+                    metricAdjustButton(icon: "plus", label: "+5") {
+                        if age < 95 { age += 5 }
+                    }
+
+                    metricAdjustButton(icon: "plus", label: "+1") {
+                        if age < 99 { age += 1 }
+                    }
+                }
+
+                // Slider
+                VStack(spacing: 8) {
+                    Slider(value: Binding(
+                        get: { Double(age) },
+                        set: { age = Int($0) }
+                    ), in: 14...99, step: 1)
+                    .tint(AppTheme.primary)
+
+                    HStack {
+                        Text("14 yrs")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(AppTheme.textSecondary)
+                        Spacer()
+                        Text("99 yrs")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(AppTheme.textSecondary)
+                    }
+                }
+                .padding(.horizontal, 4)
+            }
+        }
+    }
+
+    // MARK: - Step 3: Height
+    private var heightStepView: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.lg) {
+            stepHeader(
+                title: "What is your height?",
+                subtitle: "Height determines your lean mass baseline and resting caloric burn."
+            )
+
+            let feet = Int(heightCm / 30.48)
+            let inches = Int((heightCm.truncatingRemainder(dividingBy: 30.48)) / 2.54)
+
+            VStack(spacing: 24) {
+                VStack(spacing: 4) {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text("\(Int(heightCm))")
+                            .font(.system(size: 64, weight: .black, design: .rounded))
+                            .foregroundStyle(AppTheme.primary)
+
+                        Text("cm")
+                            .font(.system(size: 20, weight: .bold, design: .rounded))
+                            .foregroundStyle(AppTheme.textSecondary)
+                    }
+
+                    Text("(\(feet) ft \(inches) in)")
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .foregroundStyle(AppTheme.warmAccent)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 20)
+                .background(AppTheme.elevatedSurface, in: RoundedRectangle(cornerRadius: AppRadius.xlarge, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppRadius.xlarge, style: .continuous)
+                        .stroke(AppTheme.borderSubtle, lineWidth: 1)
+                )
+
+                // Quick Increment Buttons
+                HStack(spacing: 16) {
+                    metricAdjustButton(icon: "minus", label: "-5") {
+                        if heightCm > 125 { heightCm -= 5 }
+                    }
+
+                    metricAdjustButton(icon: "minus", label: "-1") {
+                        if heightCm > 121 { heightCm -= 1 }
+                    }
+
+                    metricAdjustButton(icon: "plus", label: "+1") {
+                        if heightCm < 229 { heightCm += 1 }
+                    }
+
+                    metricAdjustButton(icon: "plus", label: "+5") {
+                        if heightCm < 225 { heightCm += 5 }
+                    }
+                }
+
+                // Slider
+                VStack(spacing: 8) {
+                    Slider(value: $heightCm, in: 120...230, step: 1)
+                        .tint(AppTheme.primary)
+
+                    HStack {
+                        Text("120 cm")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(AppTheme.textSecondary)
+                        Spacer()
+                        Text("230 cm")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(AppTheme.textSecondary)
+                    }
+                }
+                .padding(.horizontal, 4)
+            }
+        }
+    }
+
+    // MARK: - Step 4: Weight
+    private var weightStepView: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.lg) {
+            stepHeader(
+                title: "What is your weight?",
+                subtitle: "Chef Zest computes your daily protein distribution and macro targets from your weight."
+            )
+
+            let heightInM = heightCm / 100.0
+            let bmi = weightKg / (heightInM * heightInM)
+            let lbs = weightKg * 2.20462
+
+            VStack(spacing: 24) {
+                VStack(spacing: 6) {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(String(format: "%.1f", weightKg))
+                            .font(.system(size: 64, weight: .black, design: .rounded))
+                            .foregroundStyle(AppTheme.primary)
+
+                        Text("kg")
+                            .font(.system(size: 20, weight: .bold, design: .rounded))
+                            .foregroundStyle(AppTheme.textSecondary)
+                    }
+
+                    HStack(spacing: 8) {
+                        Text("(\(String(format: "%.1f", lbs)) lbs)")
+                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                            .foregroundStyle(AppTheme.textSecondary)
+
+                        Text("·")
+                            .foregroundStyle(AppTheme.textSecondary)
+
+                        Text("BMI: \(String(format: "%.1f", bmi))")
+                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                            .foregroundStyle(AppTheme.warmAccent)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 20)
+                .background(AppTheme.elevatedSurface, in: RoundedRectangle(cornerRadius: AppRadius.xlarge, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppRadius.xlarge, style: .continuous)
+                        .stroke(AppTheme.borderSubtle, lineWidth: 1)
+                )
+
+                // Quick Increment Buttons
+                HStack(spacing: 16) {
+                    metricAdjustButton(icon: "minus", label: "-2kg") {
+                        if weightKg > 32 { weightKg -= 2 }
+                    }
+
+                    metricAdjustButton(icon: "minus", label: "-0.5kg") {
+                        if weightKg > 30.5 { weightKg -= 0.5 }
+                    }
+
+                    metricAdjustButton(icon: "plus", label: "+0.5kg") {
+                        if weightKg < 199.5 { weightKg += 0.5 }
+                    }
+
+                    metricAdjustButton(icon: "plus", label: "+2kg") {
+                        if weightKg < 198 { weightKg += 2 }
+                    }
+                }
+
+                // Slider
+                VStack(spacing: 8) {
+                    Slider(value: $weightKg, in: 30...200, step: 0.5)
+                        .tint(AppTheme.primary)
+
+                    HStack {
+                        Text("30 kg")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(AppTheme.textSecondary)
+                        Spacer()
+                        Text("200 kg")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(AppTheme.textSecondary)
+                    }
+                }
+                .padding(.horizontal, 4)
+            }
+        }
+    }
+
+    // MARK: - Step 5: Diet Preference
+    private var dietStepView: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.lg) {
+            stepHeader(
+                title: "What is your diet preference?",
+                subtitle: "Strict dietary boundaries enforced across all grocery recommendations and AI recipes."
+            )
+
+            VStack(spacing: AppSpacing.md) {
                 ForEach(DietaryPreference.allCases) { pref in
+                    let isSelected = pref == dietPreference
                     Button {
+                        HapticManager.impact(.light)
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
                             dietPreference = pref
                         }
                     } label: {
-                        HStack(alignment: .top, spacing: 12) {
-                            Image(systemName: pref == dietPreference ? "checkmark.circle.fill" : "circle")
-                                .font(.system(size: 20, weight: .bold))
-                                .foregroundStyle(pref == dietPreference ? AppTheme.zestOrange : AppTheme.basilGreen.opacity(0.3))
+                        HStack(alignment: .top, spacing: 14) {
+                            Image(systemName: pref.badgeIcon)
+                                .font(.system(size: 22, weight: .bold))
+                                .foregroundStyle(isSelected ? AppTheme.primary : AppTheme.textSecondary)
+                                .frame(width: 28)
 
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(pref.rawValue)
-                                    .font(.system(size: 15, weight: .bold))
-                                    .foregroundStyle(AppTheme.basilGreen)
+                                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                                    .foregroundStyle(AppTheme.textPrimary)
 
                                 Text(pref.description)
-                                    .font(.system(size: 12, weight: .regular))
-                                    .foregroundStyle(AppTheme.basilGreen.opacity(0.65))
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(AppTheme.textSecondary)
                                     .lineSpacing(2)
                             }
+
                             Spacer(minLength: 0)
+
+                            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundStyle(isSelected ? AppTheme.primary : AppTheme.borderSubtle)
                         }
-                        .padding(14)
-                        .background(pref == dietPreference ? AppTheme.zestOrange.opacity(0.08) : AppTheme.cream, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .stroke(pref == dietPreference ? AppTheme.zestOrange : Color.clear, lineWidth: 1.5)
-                        }
+                        .padding(AppSpacing.md)
+                        .background(AppTheme.elevatedSurface, in: RoundedRectangle(cornerRadius: AppRadius.large, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: AppRadius.large, style: .continuous)
+                                .stroke(isSelected ? AppTheme.primary : AppTheme.borderSubtle, lineWidth: isSelected ? 2 : 1)
+                        )
                     }
                     .buttonStyle(.plain)
                 }
             }
         }
-        .padding(16)
-        .background(AppTheme.elevatedSurface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 
-    private var workoutCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Workout & Activity Level")
-                .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(AppTheme.basilGreen)
+    // MARK: - Step 6: Health Goal & Macro Summary
+    private var goalsStepView: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.lg) {
+            stepHeader(
+                title: "What is your primary goal?",
+                subtitle: "We calculate your personalized daily calorie and protein targets."
+            )
 
-            VStack(spacing: 8) {
-                ForEach(WorkoutFrequency.allCases) { freq in
-                    Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                            workoutFrequency = freq
-                        }
-                    } label: {
-                        HStack {
-                            Text(freq.rawValue)
-                                .font(.system(size: 14, weight: freq == workoutFrequency ? .bold : .medium))
-                                .foregroundStyle(freq == workoutFrequency ? AppTheme.cream : AppTheme.basilGreen)
-
-                            Spacer()
-
-                            if freq == workoutFrequency {
-                                Image(systemName: "checkmark")
-                                    .font(.system(size: 14, weight: .bold))
-                                    .foregroundStyle(AppTheme.cream)
-                            }
-                        }
-                        .padding(12)
-                        .background(freq == workoutFrequency ? AppTheme.basilGreen : AppTheme.cream, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-        }
-        .padding(16)
-        .background(AppTheme.elevatedSurface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-    }
-
-    private var goalCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Primary Health Goal")
-                .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(AppTheme.basilGreen)
-
-            VStack(spacing: 8) {
+            VStack(spacing: AppSpacing.md) {
                 ForEach(FitnessGoal.allCases) { goal in
+                    let isSelected = goal == fitnessGoal
                     Button {
+                        HapticManager.impact(.light)
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
                             fitnessGoal = goal
                         }
                     } label: {
                         HStack {
-                            Text(goal.rawValue)
-                                .font(.system(size: 14, weight: goal == fitnessGoal ? .bold : .medium))
-                                .foregroundStyle(goal == fitnessGoal ? AppTheme.cream : AppTheme.basilGreen)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(goal.rawValue)
+                                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                                    .foregroundStyle(AppTheme.textPrimary)
+
+                                Text(goalDescription(goal))
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(AppTheme.textSecondary)
+                            }
 
                             Spacer()
 
-                            if goal == fitnessGoal {
-                                Image(systemName: "checkmark")
-                                    .font(.system(size: 14, weight: .bold))
-                                    .foregroundStyle(AppTheme.cream)
-                            }
+                            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundStyle(isSelected ? AppTheme.warmAccent : AppTheme.borderSubtle)
                         }
-                        .padding(12)
-                        .background(goal == fitnessGoal ? AppTheme.zestOrange : AppTheme.cream, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .padding(AppSpacing.md)
+                        .background(AppTheme.elevatedSurface, in: RoundedRectangle(cornerRadius: AppRadius.large, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: AppRadius.large, style: .continuous)
+                                .stroke(isSelected ? AppTheme.warmAccent : AppTheme.borderSubtle, lineWidth: isSelected ? 2 : 1)
+                        )
                     }
                     .buttonStyle(.plain)
                 }
             }
+
+            // Live Calculated Macro Targets Card
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    Image(systemName: "bolt.heart.fill")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(AppTheme.warmAccent)
+
+                    Text("Your Personalized Targets")
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .foregroundStyle(AppTheme.textPrimary)
+
+                    Spacer()
+
+                    Text("BMR: \(Int(currentProfile.bmr)) kcal")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(AppTheme.textSecondary)
+                }
+
+                HStack(spacing: AppSpacing.lg) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(currentProfile.calculatedTargetCalories) kcal")
+                            .font(.system(size: 24, weight: .black, design: .rounded))
+                            .foregroundStyle(AppTheme.primary)
+
+                        Text("Daily Calorie Target")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(AppTheme.textSecondary)
+                    }
+
+                    Spacer()
+
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("\(currentProfile.calculatedTargetProtein)g")
+                            .font(.system(size: 24, weight: .black, design: .rounded))
+                            .foregroundStyle(AppTheme.warmAccent)
+
+                        Text("Daily Protein Goal")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(AppTheme.textSecondary)
+                    }
+                }
+            }
+            .padding(AppSpacing.md)
+            .background(AppTheme.elevatedSurface, in: RoundedRectangle(cornerRadius: AppRadius.large, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: AppRadius.large, style: .continuous)
+                    .stroke(AppTheme.warmAccent.opacity(0.35), lineWidth: 1.5)
+            )
         }
-        .padding(16)
-        .background(AppTheme.elevatedSurface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 
-    private var saveButton: some View {
-        Button {
-            let p = currentProfile
-            store.setProfile(p)
-            sessionManager.markPantrySeedCompleted()
-            router.completeProfileSetup(needsPantrySeed: needsPantrySeed)
-        } label: {
-            HStack {
-                Text("Save Profile & Continue")
-                    .font(.system(size: 17, weight: .bold))
+    private func goalDescription(_ goal: FitnessGoal) -> String {
+        switch goal {
+        case .fatLoss:
+            return "Caloric deficit (-20%) optimized for healthy fat burn"
+        case .muscleGain:
+            return "Caloric surplus (+15%) paired with high protein"
+        case .maintenance:
+            return "Even balance to stay energized and fit"
+        case .zeroWaste:
+            return "Maximize pantry shelf-life & zero food waste"
+        }
+    }
 
-                Image(systemName: "arrow.right")
-                    .font(.system(size: 17, weight: .bold))
+    // MARK: - Bottom Action Bar
+    private var bottomActionBar: some View {
+        VStack(spacing: 0) {
+            Button {
+                advanceStep()
+            } label: {
+                HStack(spacing: 8) {
+                    if isSaving {
+                        ProgressView()
+                            .tint(AppTheme.elevatedSurface)
+                    } else {
+                        Text(currentStep == totalSteps ? "Save & Enter Kitchen" : "Continue")
+                            .font(.system(size: 17, weight: .bold, design: .rounded))
+
+                        Image(systemName: currentStep == totalSteps ? "checkmark.circle.fill" : "arrow.right")
+                            .font(.system(size: 16, weight: .bold))
+                    }
+                }
+                .foregroundStyle(AppTheme.elevatedSurface)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(AppTheme.primary, in: RoundedRectangle(cornerRadius: AppRadius.large, style: .continuous))
+                .shadow(color: AppTheme.primary.opacity(0.3), radius: 10, y: 5)
             }
-            .foregroundStyle(AppTheme.cream)
+            .disabled(isSaving)
+            .buttonStyle(.plain)
+            .padding(.horizontal, AppSpacing.lg)
+            .padding(.vertical, AppSpacing.md)
+        }
+        .background(
+            LinearGradient(
+                colors: [AppTheme.background.opacity(0), AppTheme.background, AppTheme.background],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        )
+    }
+
+    private func advanceStep() {
+        HapticManager.impact(.medium)
+        if currentStep < totalSteps {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                currentStep += 1
+            }
+        } else {
+            completeSetup()
+        }
+    }
+
+    private func completeSetup() {
+        guard !isSaving else { return }
+        isSaving = true
+
+        let completedProfile = currentProfile
+
+        Task {
+            // Persist profile to Firestore
+            do {
+                try await FirebaseService.shared.saveUserProfile(completedProfile)
+            } catch {
+                print("Failed to save user profile to Firebase: \(error.localizedDescription)")
+            }
+
+            // Update local store & session
+            await MainActor.run {
+                store.setProfile(completedProfile)
+                sessionManager.markProfileCompleted(with: completedProfile)
+                isSaving = false
+                router.completeProfileSetup(needsPantrySeed: needsPantrySeed)
+            }
+        }
+    }
+
+    // MARK: - Helpers
+    private func stepHeader(title: String, subtitle: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.system(size: 24, weight: .black, design: .rounded))
+                .foregroundStyle(AppTheme.textPrimary)
+
+            Text(subtitle)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(AppTheme.textSecondary)
+                .lineSpacing(2)
+        }
+    }
+
+    private func metricAdjustButton(icon: String, label: String, action: @escaping () -> Void) -> some View {
+        Button {
+            HapticManager.impact(.light)
+            action()
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.system(size: 11, weight: .bold))
+                Text(label)
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+            }
+            .foregroundStyle(AppTheme.textPrimary)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
-            .background(AppTheme.basilGreen, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .padding(.vertical, 12)
+            .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: AppRadius.medium, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: AppRadius.medium, style: .continuous)
+                    .stroke(AppTheme.borderSubtle, lineWidth: 1)
+            )
         }
         .buttonStyle(.plain)
     }
-}
-
-#Preview {
-    ProfileSetupView(needsPantrySeed: true)
-        .environmentObject(AppRouter())
-        .environmentObject(AppStore())
-        .environmentObject(SessionManager())
 }

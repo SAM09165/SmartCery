@@ -23,6 +23,25 @@ final class GroceryMarketViewModel: ObservableObject {
         let total: Double
         let timestamp = Date()
         var step: Int = 1 // 1: Confirmed, 2: Packing, 3: Out for Delivery, 4: Delivered
+        var deliveryAddress: String = "Home • 21 Park Street, Suite 4B"
+
+        var estimatedMinutesRemaining: Int {
+            switch step {
+            case 1: return 10
+            case 2: return 7
+            case 3: return 3
+            default: return 0
+            }
+        }
+
+        var status: String {
+            switch step {
+            case 1: return "Order Confirmed"
+            case 2: return "Packing at Dark Store"
+            case 3: return "Out for Delivery"
+            default: return "Delivered"
+            }
+        }
     }
 
     init() {
@@ -74,6 +93,10 @@ final class GroceryMarketViewModel: ObservableObject {
         }
     }
 
+    var smartReplenishItems: [MarketItem] {
+        Array(allowedCatalogItems.prefix(4))
+    }
+
     var cartCount: Int {
         quantities.values.reduce(0, +)
     }
@@ -91,6 +114,10 @@ final class GroceryMarketViewModel: ObservableObject {
         }
     }
 
+    var handlingFee: Double {
+        cartCount == 0 ? 0 : 0.99
+    }
+
     var deliveryFee: Double {
         cartCount == 0 || subtotal >= 25 ? 0 : 2.99
     }
@@ -101,7 +128,7 @@ final class GroceryMarketViewModel: ObservableObject {
 
     var cartStatusLine: String {
         cartCount == 0
-            ? "⚡ 10 min express delivery"
+            ? "10 min express delivery"
             : "\(cartCount) item\(cartCount == 1 ? "" : "s") · \(formatPrice(total))"
     }
 
@@ -176,3 +203,6 @@ final class GroceryMarketViewModel: ObservableObject {
         }
     }
 }
+
+
+typealias MarketOrder = GroceryMarketViewModel.MarketOrder

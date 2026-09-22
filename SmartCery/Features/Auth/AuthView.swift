@@ -73,47 +73,47 @@ struct AuthView: View {
                 Text("Skip")
                     .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(cream)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 7)
-                    .background(Color.black.opacity(0.25), in: Capsule())
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 6)
+                    .background(Color.white.opacity(0.22), in: Capsule())
             }
-            .buttonStyle(.plain)
+            .padding(.top, 54)
             .padding(.trailing, 20)
-            .padding(.top, 50)
+            .buttonStyle(.plain)
 
-            // Center Brand Hero
+            // Center Floating Chef Identity
             VStack(spacing: 8) {
                 ZStack {
                     Circle()
                         .fill(cream)
-                        .frame(width: 68, height: 68)
-                        .shadow(color: Color.black.opacity(0.15), radius: 10, y: 4)
+                        .frame(width: 84, height: 84)
+                        .shadow(color: Color.black.opacity(0.15), radius: 10, y: 6)
 
                     Image(systemName: "fork.knife.circle.fill")
-                        .font(.system(size: 38, weight: .bold))
-                        .foregroundStyle(zestOrange)
+                        .font(.system(size: 54))
+                        .foregroundStyle(basilGreen)
                 }
 
-                Text("smartcery")
-                    .font(.system(size: 32, weight: .black, design: .rounded))
+                Text("SmartCery")
+                    .font(.system(size: 26, weight: .black, design: .rounded))
                     .foregroundStyle(cream)
-                    .shadow(color: Color.black.opacity(0.2), radius: 4, y: 2)
+                    .tracking(0.5)
 
-                Text("CHEF ZEST • AI KITCHEN")
-                    .font(.system(size: 10, weight: .black))
+                Text("AI ZERO-WASTE & MEAL INTELLIGENCE")
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
                     .foregroundStyle(cream.opacity(0.85))
-                    .kerning(1.8)
+                    .tracking(1.4)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 250)
+            .padding(.top, 50)
         }
     }
 
-    // Headline Section
+    // Bold App Headline
     private var headlineSection: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 6) {
             Text(viewModel.title)
-                .font(.system(size: 24, weight: .black))
+                .font(.system(size: 21, weight: .bold, design: .rounded))
                 .multilineTextAlignment(.center)
                 .foregroundStyle(basilGreen)
                 .padding(.horizontal, 24)
@@ -178,14 +178,13 @@ struct AuthView: View {
                 HStack(spacing: 12) {
                     Image(systemName: "envelope.fill")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(zestOrange)
+                        .foregroundStyle(focusedField == .email ? zestOrange : basilGreen.opacity(0.4))
 
                     TextField("Enter Email Address", text: $viewModel.email)
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(basilGreen)
-                        .textInputAutocapitalization(.never)
                         .keyboardType(.emailAddress)
-                        .autocorrectionDisabled()
+                        .autocapitalization(.none)
                         .focused($focusedField, equals: .email)
                 }
                 .padding(14)
@@ -199,10 +198,10 @@ struct AuthView: View {
                 HStack(spacing: 12) {
                     Image(systemName: "lock.fill")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(zestOrange)
+                        .foregroundStyle(focusedField == .password ? zestOrange : basilGreen.opacity(0.4))
 
-                    SecureField("Password (6+ characters)", text: $viewModel.password)
-                        .font(.system(size: 16, weight: .medium))
+                    SecureField("Enter Password", text: $viewModel.password)
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(basilGreen)
                         .focused($focusedField, equals: .password)
                 }
@@ -217,6 +216,7 @@ struct AuthView: View {
         .padding(.horizontal, 24)
     }
 
+    // Status Message
     private var chefStatusBanner: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "flame.fill")
@@ -239,12 +239,11 @@ struct AuthView: View {
     private var primaryButton: some View {
         Button {
             Task {
-                let isCreatingAccount = (viewModel.mode == .createAccount)
                 guard let record = await viewModel.submit() else { return }
                 sessionManager.applySignedInRecord(record)
                 store.setProfile(record.profile)
 
-                if isCreatingAccount {
+                if !record.hasCompletedProfile {
                     router.openProfileSetup(needsPantrySeed: !record.hasCompletedPantrySeed)
                 } else {
                     router.completeAuth(needsPantrySeed: !record.hasCompletedPantrySeed)
@@ -278,44 +277,47 @@ struct AuthView: View {
                 // Google Button
                 socialIconButton(iconName: "g.circle.fill", color: Color.red) {
                     viewModel.inputType = .email
-                    viewModel.email = "demo.google@smartcery.app"
-                    viewModel.password = "GoogleUser123#"
                 }
 
                 // Apple Button
-                socialIconButton(iconName: "apple.logo", color: basilGreen) {
+                socialIconButton(iconName: "applelogo", color: Color.black) {
                     viewModel.inputType = .email
-                    viewModel.email = "demo.apple@smartcery.app"
-                    viewModel.password = "AppleUser123#"
                 }
 
-                // Phone/Email Toggle Button
-                socialIconButton(iconName: viewModel.inputType == .email ? "phone.fill" : "envelope.fill", color: zestOrange) {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                // Switch Phone/Email Button
+                socialIconButton(
+                    iconName: viewModel.inputType == .email ? "phone.fill" : "envelope.fill",
+                    color: basilGreen
+                ) {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                         viewModel.inputType = (viewModel.inputType == .email) ? .phone : .email
                     }
                 }
             }
 
-            Button(viewModel.toggleTitle) {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            // Mode Toggle (New here? Create an account / Already have an account? Log in)
+            Button {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                     viewModel.toggleMode()
                 }
+            } label: {
+                Text(viewModel.toggleTitle)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(zestOrange)
             }
-            .font(.system(size: 14, weight: .semibold))
-            .foregroundStyle(zestOrange)
+            .padding(.top, 4)
         }
     }
 
     private func socialIconButton(iconName: String, color: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             ZStack {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                Circle()
                     .fill(cream)
-                    .frame(width: 58, height: 50)
+                    .frame(width: 52, height: 52)
+                    .shadow(color: Color.black.opacity(0.06), radius: 6, y: 3)
                     .overlay {
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(basilGreen.opacity(0.12), lineWidth: 1)
+                        Circle().stroke(basilGreen.opacity(0.12), lineWidth: 1)
                     }
 
                 Image(systemName: iconName)
@@ -326,16 +328,16 @@ struct AuthView: View {
         .buttonStyle(.plain)
     }
 
-    // Section Divider Component
     private func divider(_ text: String) -> some View {
-        HStack(spacing: 12) {
+        HStack {
             Rectangle()
                 .fill(basilGreen.opacity(0.12))
                 .frame(height: 1)
 
-            Text(text)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(basilGreen.opacity(0.55))
+            Text(text.uppercased())
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(basilGreen.opacity(0.5))
+                .padding(.horizontal, 8)
 
             Rectangle()
                 .fill(basilGreen.opacity(0.12))
@@ -344,39 +346,16 @@ struct AuthView: View {
         .padding(.horizontal, 28)
     }
 
-    // Footer Terms & Conditions
     private var footerTerms: some View {
-        VStack(spacing: 4) {
-            Text("By continuing, you agree to our")
-                .font(.system(size: 11, weight: .regular))
-                .foregroundStyle(basilGreen.opacity(0.5))
-
-            HStack(spacing: 4) {
-                Text("Terms of Service")
-                    .underline()
-                Text("•")
-                Text("Privacy Policy")
-                    .underline()
-                Text("•")
-                Text("Content Policies")
-                    .underline()
-            }
-            .font(.system(size: 11, weight: .semibold))
-            .foregroundStyle(basilGreen.opacity(0.65))
-        }
-        .padding(.top, 8)
+        Text("By continuing, you agree to our Terms of Service & Privacy Policy.")
+            .font(.system(size: 11, weight: .regular))
+            .multilineTextAlignment(.center)
+            .foregroundStyle(basilGreen.opacity(0.5))
+            .padding(.horizontal, 32)
+            .padding(.top, 8)
     }
-}
 
-private enum Field {
-    case email
-    case password
-    case phone
-}
-
-#Preview {
-    AuthView()
-        .environmentObject(AppRouter())
-        .environmentObject(AppStore())
-        .environmentObject(SessionManager())
+    enum Field: Hashable {
+        case email, password, phone
+    }
 }

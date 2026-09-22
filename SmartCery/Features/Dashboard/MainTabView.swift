@@ -2,7 +2,8 @@
 //  MainTabView.swift
 //  SmartCery
 //
-//  This view relies on AppTheme tokens for consistent colors across the app.
+//  Custom floating bottom navigation system with 5 primary tabs:
+//  Home, Plan, Shop, Recipes, Profile.
 //
 
 import SwiftUI
@@ -12,52 +13,57 @@ struct MainTabView: View {
     @StateObject private var tabRouter = TabRouter()
 
     var body: some View {
-        TabView(selection: $tabRouter.selectedTab) {
-            NavigationStack {
-                DashboardView()
-            }
-            .tabItem {
-                Label("Dashboard", systemImage: "house")
-            }
-            .tag(MainTab.dashboard)
+        ZStack(alignment: .bottom) {
+            AppTheme.background.ignoresSafeArea()
 
-            NavigationStack {
-                GroceryMarketView()
+            Group {
+                switch tabRouter.selectedTab {
+                case .dashboard:
+                    NavigationStack {
+                        DashboardView()
+                    }
+                case .mealPlanner:
+                    NavigationStack {
+                        MealPlannerview()
+                    }
+                case .market:
+                    NavigationStack {
+                        GroceryMarketView()
+                    }
+                case .recipes:
+                    NavigationStack {
+                        ChefZestView()
+                    }
+                case .settings:
+                    NavigationStack {
+                        SettingsView()
+                    }
+                case .pantry, .Pantry:
+                    NavigationStack {
+                        PantryView()
+                    }
+                case .groceryList:
+                    NavigationStack {
+                        GroceryListView()
+                    }
+                }
             }
-            .tabItem {
-                Label("Market", systemImage: "cart")
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // Leave breathing room for the floating bottom bar
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                Color.clear.frame(height: 64)
             }
-            .badge(groceryMarketVM.cartCount)
-            .tag(MainTab.market)
 
-            NavigationStack {
-                PantryView()
-            }
-            .tabItem {
-                Label("Pantry", systemImage: "archivebox")
-            }
-            .tag(MainTab.pantry)
-
-            NavigationStack {
-                MealPlannerview()
-            }
-            .tabItem {
-                Label("Planner", systemImage: "calendar")
-            }
-            .tag(MainTab.mealPlanner)
-
-            NavigationStack {
-                SettingsView()
-            }
-            .tabItem {
-                Label("More", systemImage: "ellipsis.circle")
-            }
-            .tag(MainTab.settings)
+            // Floating Liquid Glass Navigation Bar
+            SmartCeryFloatingBottomBar(
+                selectedTab: $tabRouter.selectedTab,
+                cartCount: groceryMarketVM.cartCount
+            )
+            .padding(.bottom, 6)
         }
         .environmentObject(groceryMarketVM)
         .environmentObject(tabRouter)
-        .tint(AppTheme.zestOrange)
-        .background(AppTheme.softCream.ignoresSafeArea())
+        .ignoresSafeArea(.keyboard, edges: .bottom)
     }
 }
 
@@ -65,4 +71,5 @@ struct MainTabView: View {
     MainTabView()
         .environmentObject(AppRouter())
         .environmentObject(AppStore())
+        .environmentObject(SessionManager())
 }

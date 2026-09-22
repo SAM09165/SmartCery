@@ -71,3 +71,4 @@ struct RootView: View {
         .environmentObject(AppStore())
         .environmentObject(SessionManager())
 }
+

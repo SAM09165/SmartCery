@@ -14,10 +14,8 @@ struct FirebaseUserRecord: Equatable {
     let email: String
     let displayName: String
     let hasCompletedPantrySeed: Bool
-
-    var profile: UserProfile {
-        UserProfile(displayName: displayName, email: email)
-    }
+    let hasCompletedProfile: Bool
+    let profile: UserProfile
 }
 
 final class FirebaseService {
@@ -59,19 +57,65 @@ final class FirebaseService {
                 let email = data["email"] as? String ?? fallbackEmail
                 let displayName = data["displayName"] as? String ?? fallbackDisplayName
                 let hasCompletedPantrySeed = data["hasCompletedPantrySeed"] as? Bool ?? false
-                return FirebaseUserRecord(uid: user.uid, email: email, displayName: displayName, hasCompletedPantrySeed: hasCompletedPantrySeed)
+                let hasCompletedProfile = data["hasCompletedProfile"] as? Bool ?? false
+
+                let age = data["age"] as? Int ?? 26
+                let gender = data["gender"] as? String ?? "Male"
+                let heightCm = data["heightCm"] as? Double ?? 175.0
+                let weightKg = data["weightKg"] as? Double ?? 70.0
+                let dietPrefString = data["dietPreference"] as? String ?? "Strict Pure Veg"
+                let dietPreference = DietaryPreference(rawValue: dietPrefString) ?? .pureVeg
+                let workoutString = data["workoutFrequency"] as? String ?? "Moderate (3-4 days/week)"
+                let workoutFrequency = WorkoutFrequency(rawValue: workoutString) ?? .moderate
+                let goalString = data["fitnessGoal"] as? String ?? "Fat Loss / Weight Loss"
+                let fitnessGoal = FitnessGoal(rawValue: goalString) ?? .fatLoss
+
+                let profile = UserProfile(
+                    displayName: displayName,
+                    email: email,
+                    age: age,
+                    gender: gender,
+                    heightCm: heightCm,
+                    weightKg: weightKg,
+                    dietPreference: dietPreference,
+                    workoutFrequency: workoutFrequency,
+                    fitnessGoal: fitnessGoal,
+                    profileCompleted: hasCompletedProfile
+                )
+
+                return FirebaseUserRecord(
+                    uid: user.uid,
+                    email: email,
+                    displayName: displayName,
+                    hasCompletedPantrySeed: hasCompletedPantrySeed,
+                    hasCompletedProfile: hasCompletedProfile,
+                    profile: profile
+                )
             }
         } catch {
             print("FirebaseService.ensureUserRecord: Could not read Firestore document: \(error.localizedDescription)")
         }
 
-        let record = FirebaseUserRecord(uid: user.uid, email: fallbackEmail, displayName: fallbackDisplayName, hasCompletedPantrySeed: false)
+        let defaultProfile = UserProfile(
+            displayName: fallbackDisplayName,
+            email: fallbackEmail,
+            profileCompleted: false
+        )
+        let record = FirebaseUserRecord(
+            uid: user.uid,
+            email: fallbackEmail,
+            displayName: fallbackDisplayName,
+            hasCompletedPantrySeed: false,
+            hasCompletedProfile: false,
+            profile: defaultProfile
+        )
         do {
             try await setData([
                 "uid": record.uid,
                 "email": record.email,
                 "displayName": record.displayName,
-                "hasCompletedPantrySeed": record.hasCompletedPantrySeed,
+                "hasCompletedPantrySeed": false,
+                "hasCompletedProfile": false,
                 "createdAt": FieldValue.serverTimestamp(),
                 "updatedAt": FieldValue.serverTimestamp()
             ], on: reference, merge: true)
@@ -79,6 +123,23 @@ final class FirebaseService {
             print("FirebaseService.ensureUserRecord: Could not save Firestore document: \(error.localizedDescription)")
         }
         return record
+    }
+
+    func saveUserProfile(_ profile: UserProfile) async throws {
+        ensureFirebaseConfigured()
+        guard let user = Auth.auth().currentUser else { return }
+        try await setData([
+            "displayName": profile.displayName,
+            "age": profile.age,
+            "gender": profile.gender,
+            "heightCm": profile.heightCm,
+            "weightKg": profile.weightKg,
+            "dietPreference": profile.dietPreference.rawValue,
+            "workoutFrequency": profile.workoutFrequency.rawValue,
+            "fitnessGoal": profile.fitnessGoal.rawValue,
+            "hasCompletedProfile": true,
+            "updatedAt": FieldValue.serverTimestamp()
+        ], on: userReference(for: user.uid), merge: true)
     }
 
     func markPantrySeedCompleted() async throws {
@@ -273,31 +334,36 @@ private extension PantryItem {
         guard let id = UUID(uuidString: documentID),
               let name = data["name"] as? String,
               let category = data["category"] as? String,
-              let quantity = data["quantity"] as? String,
-              let iconName = data["iconName"] as? String else {
+              let quantity = data["quantity"] as? String else {
             return nil
         }
 
+        let iconName = data["iconName"] as? String ?? "cabinet.fill"
         let expiryDate = (data["expiryDate"] as? Timestamp)?.dateValue()
-        self.init(id: id, name: name, category: category, quantity: quantity, expiryDate: expiryDate, iconName: iconName)
+
+        self.init(
+            id: id,
+            name: name,
+            category: category,
+            quantity: quantity,
+            expiryDate: expiryDate,
+            iconName: iconName
+        )
     }
 
     var firestoreData: [String: Any] {
-        var data: [String: Any] = [
+        var dict: [String: Any] = [
+            "id": id.uuidString,
             "name": name,
             "category": category,
             "quantity": quantity,
             "iconName": iconName,
             "updatedAt": FieldValue.serverTimestamp()
         ]
-
         if let expiryDate {
-            data["expiryDate"] = Timestamp(date: expiryDate)
-        } else {
-            data["expiryDate"] = FieldValue.delete()
+            dict["expiryDate"] = Timestamp(date: expiryDate)
         }
-
-        return data
+        return dict
     }
 }
 
@@ -310,12 +376,20 @@ private extension GroceryItem {
         }
 
         let isChecked = data["isChecked"] as? Bool ?? false
-        let createdAt = (data["createdAt"] as? Timestamp)?.dateValue() ?? .now
-        self.init(id: id, name: name, quantity: quantity, isChecked: isChecked, createdAt: createdAt)
+        let createdAt = (data["createdAt"] as? Timestamp)?.dateValue() ?? Date()
+
+        self.init(
+            id: id,
+            name: name,
+            quantity: quantity,
+            isChecked: isChecked,
+            createdAt: createdAt
+        )
     }
 
     var firestoreData: [String: Any] {
         [
+            "id": id.uuidString,
             "name": name,
             "quantity": quantity,
             "isChecked": isChecked,
@@ -323,13 +397,4 @@ private extension GroceryItem {
             "updatedAt": FieldValue.serverTimestamp()
         ]
     }
-}
-
-struct RecipeDTO: Codable, Identifiable, Hashable {
-    var id: UUID
-    var title: String
-    var instructions: [String]
-    var ingredientIDs: [UUID]
-    var isFavorite: Bool
-    var createdAt: Date
 }

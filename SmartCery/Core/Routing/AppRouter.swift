@@ -48,8 +48,14 @@ final class AppRouter: ObservableObject {
             destination = .loading
         case .signedOut:
             destination = .auth
-        case .signedIn(let needsPantrySeed):
-            destination = needsPantrySeed ? .pantrySeed : .dashboard(offline: false)
+        case .signedIn(let needsProfileSetup, let needsPantrySeed):
+            if needsProfileSetup {
+                destination = .profileSetup(needsPantrySeed: needsPantrySeed)
+            } else if needsPantrySeed {
+                destination = .pantrySeed
+            } else {
+                destination = .dashboard(offline: false)
+            }
         }
     }
 

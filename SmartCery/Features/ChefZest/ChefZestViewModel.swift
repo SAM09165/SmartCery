@@ -14,14 +14,25 @@ struct AIDietChatMessage: Identifiable, Hashable {
 }
 
 enum DietGoal: String, CaseIterable, Identifiable {
-    case highProtein = "High Protein 💪"
-    case fatLoss = "Fat Loss 🔥"
-    case muscleGain = "Muscle Gain 🏋️‍♂️"
-    case zeroWaste = "Zero Waste ♻️"
-    case lowCarb = "Keto / Low Carb 🥑"
-    case gutHealth = "Gut Health 🥗"
+    case highProtein = "High Protein"
+    case fatLoss = "Fat Loss"
+    case muscleGain = "Muscle Gain"
+    case zeroWaste = "Zero Waste"
+    case lowCarb = "Keto / Low Carb"
+    case gutHealth = "Gut Health"
 
     var id: String { rawValue }
+
+    var iconName: String {
+        switch self {
+        case .highProtein: return "figure.strengthtraining.traditional"
+        case .fatLoss: return "flame.fill"
+        case .muscleGain: return "figure.cooldown"
+        case .zeroWaste: return "arrow.triangle.2.circlepath"
+        case .lowCarb: return "leaf.fill"
+        case .gutHealth: return "heart.fill"
+        }
+    }
 
     var targetCalories: Int {
         switch self {
@@ -128,35 +139,48 @@ final class ChefZestViewModel: ObservableObject {
                 let aiResponse = try await geminiService.generateText(prompt: prompt)
                 let replyText = aiResponse.isEmpty ? generateFallbackAIResponse(textToSend, pantry: pantry, dietPreference: userDiet) : aiResponse
 
-                let botMsg = AIDietChatMessage(sender: .chefZest, text: replyText, timestamp: Date(), suggestedRecipe: recommendations.first)
-                chatMessages.append(botMsg)
+                await MainActor.run {
+                    self.chatMessages.append(
+                        AIDietChatMessage(
+                            sender: .chefZest,
+                            text: replyText,
+                            timestamp: Date(),
+                            suggestedRecipe: self.recommendations.first
+                        )
+                    )
+                    self.isThinking = false
+                }
             } catch {
-                let replyText = generateFallbackAIResponse(textToSend, pantry: pantry, dietPreference: userDiet)
-                let botMsg = AIDietChatMessage(sender: .chefZest, text: replyText, timestamp: Date(), suggestedRecipe: recommendations.first)
-                chatMessages.append(botMsg)
+                await MainActor.run {
+                    let fallback = self.generateFallbackAIResponse(textToSend, pantry: pantry, dietPreference: userDiet)
+                    self.chatMessages.append(
+                        AIDietChatMessage(
+                            sender: .chefZest,
+                            text: fallback,
+                            timestamp: Date(),
+                            suggestedRecipe: self.recommendations.first
+                        )
+                    )
+                    self.isThinking = false
+                }
             }
-
-            isThinking = false
         }
     }
 
     private func generateFallbackAIResponse(_ prompt: String, pantry: [PantryItem], dietPreference: DietaryPreference) -> String {
-        let pantryList = pantry.map(\.name).joined(separator: ", ")
+        let isStrictVeg = dietPreference.isStrictVeg
+        let lower = prompt.lowercased()
 
-        if dietPreference.isStrictVeg {
-            if prompt.lowercased().contains("protein") {
-                return "For a strict Pure Veg target of \(selectedDietGoal.targetProteinGrams)g protein, I recommend combining paneer, chickpeas, sprouted moong, or lentils. A Paneer Spinach Scramble or Sprouted Moong Bowl yields 26g high-quality plant protein!"
-            } else if prompt.lowercased().contains("waste") || prompt.lowercased().contains("expiring") {
-                return "Zero-waste Veg Tip: Turn any expiring vegetables into a warm stir-fry or rustic tomato-lentil soup. Using \(pantryList.isEmpty ? "your pantry stock" : pantryList) preserves nutrients and saves food."
+        if lower.contains("protein") {
+            if isStrictVeg {
+                return "For high plant protein, I recommend combining fresh Malai Paneer with sprouted moong or soya chunks. This gives you 35-40g of clean protein with zero cholesterol!"
             } else {
-                return "As a Strict Pure Veg user, prioritize whole grains, paneer, tofu, legumes, and green leafy vegetables. You can easily build balanced bowls with your kitchen stock!"
+                return "To maximize protein today, pair grilled chicken breast or 3 organic eggs with roasted veggies. This will deliver 45g of bioavailable protein."
             }
+        } else if lower.contains("waste") || lower.contains("dinner") {
+            return "Check your pantry radar! Items nearing expiration can be sautéed with cumin and turmeric into a delicious zero-waste 10-minute bhurji or wok stir-fry."
         } else {
-            if prompt.lowercased().contains("protein") {
-                return "To reach your \(selectedDietGoal.targetProteinGrams)g protein target, combine eggs, paneer, or lean protein with complex carbs. An Egg Spinach Scramble gives you 22g protein in 10 minutes!"
-            } else {
-                return "Great choice! Prioritize whole foods, lean proteins, and nutrient-dense greens for your \(selectedDietGoal.rawValue) target."
-            }
+            return "Balanced nutrition is all about whole foods. Pair 1 portion of protein with 2 portions of fibrous vegetables, and stay well hydrated throughout your day!"
         }
     }
 }

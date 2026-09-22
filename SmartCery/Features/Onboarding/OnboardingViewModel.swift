@@ -42,7 +42,7 @@ final class OnboardingViewModel: ObservableObject {
     }
 
     var primaryButtonTitle: String {
-        isIntakePage ? "Save & Start Cooking 🍳" : "Next"
+        isIntakePage ? "Save & Start Cooking" : "Next"
     }
 
     var calculatedBMR: Double {
